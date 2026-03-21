@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --navy-900: #0a0e1a;
+    --navy-800: #0d1224;
+    --navy-700: #111827;
+    --navy-600: #1a2235;
+    --navy-500: #1e2a40;
+    --neon-green: #00ff87;
+    --neon-blue:  #00d4ff;
+    --neon-purple:#bf5af2;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    @apply bg-navy-900 text-white font-sans;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.03) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(191,90,242,0.03) 0%, transparent 60%);
+    min-height: 100vh;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar       { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0d1224; }
+  ::-webkit-scrollbar-thumb { background: #1e2a40; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2a3a54; }
+}
+
+@layer components {
+  /* Glass card */
+  .card {
+    @apply rounded-xl border border-white/[0.06] bg-navy-800/80 backdrop-blur-sm shadow-card;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-white/[0.12] hover:bg-navy-700/80;
+  }
+
+  /* Neon badges */
+  .badge-green  { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-neon-green/10 text-neon-green border border-neon-green/20; }
+  .badge-blue   { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-neon-blue/10  text-neon-blue  border border-neon-blue/20;  }
+  .badge-red    { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/10    text-red-400    border border-red-500/20;    }
+  .badge-yellow { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20; }
+  .badge-purple { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-neon-purple/10 text-purple-300 border border-purple-500/20; }
+  .badge-gray   { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-white/5 text-white/40 border border-white/10; }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium
+           bg-neon-green text-navy-900 hover:bg-neon-green/90
+           transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium
+           bg-white/[0.06] text-white/80 border border-white/10
+           hover:bg-white/[0.10] hover:text-white
+           transition-all duration-150 active:scale-95;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium
+           bg-red-500/15 text-red-400 border border-red-500/20
+           hover:bg-red-500/25 transition-all duration-150 active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium
+           text-white/50 hover:text-white hover:bg-white/[0.06]
+           transition-all duration-150;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full rounded-lg bg-navy-700/60 border border-white/10
+           px-3.5 py-2.5 text-sm text-white placeholder-white/30
+           focus:outline-none focus:border-neon-blue/50 focus:ring-1 focus:ring-neon-blue/30
+           transition-colors;
+  }
+
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  /* Subject color dots */
+  .dot-physics   { @apply w-2 h-2 rounded-full bg-neon-blue inline-block; }
+  .dot-chemistry { @apply w-2 h-2 rounded-full bg-neon-green inline-block; }
+  .dot-math      { @apply w-2 h-2 rounded-full bg-neon-purple inline-block; }
+  .dot-botany    { @apply w-2 h-2 rounded-full bg-emerald-400 inline-block; }
+  .dot-zoology   { @apply w-2 h-2 rounded-full bg-amber-400 inline-block; }
+  .dot-ict       { @apply w-2 h-2 rounded-full bg-orange-400 inline-block; }
+
+  /* Section headings */
+  .section-heading {
+    @apply text-xs font-semibold uppercase tracking-widest text-white/30 mb-4;
+  }
+
+  /* Stat number */
+  .stat-number {
+    @apply text-3xl font-bold tabular-nums;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    @apply h-1.5 rounded-full bg-white/10 overflow-hidden;
+  }
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-neon-green to-neon-blue bg-clip-text text-transparent;
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px rgba(0,255,135,0.25);
+  }
+
+  .animate-fade-in  { animation: fadeIn 0.3s ease-out; }
+  .animate-slide-up { animation: slideUp 0.3s ease-out; }
+}

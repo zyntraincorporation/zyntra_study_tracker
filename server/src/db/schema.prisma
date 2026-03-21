@@ -1,0 +1,104 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// ZYNTRA STUDY TRACKER — Prisma Schema
+// Database: PostgreSQL (Neon serverless)
+// All DateTime fields stored as UTC; converted to BST (UTC+6) in app layer
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── 1. Daily morning check-ins ────────────────────────────────────────────────
+model DailyCheckin {
+  id                  Int      @id @default(autoincrement())
+  date                String   // YYYY-MM-DD in BST
+  wokeUpAt6           Boolean  @default(false)
+  studiedBeforeCollege Boolean @default(false)
+  preCollegeSubject   String?  // Physics | Chemistry | Math | Biology | Other
+  preCollegeMinutes   Int?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([date])   // one checkin per day
+  @@map("daily_checkins")
+}
+
+// ── 2. Scheduled session logs ─────────────────────────────────────────────────
+model SessionLog {
+  id              Int      @id @default(autoincrement())
+  date            String   // YYYY-MM-DD in BST
+  dayOfWeek       String   // Sunday | Monday | ... | Saturday
+  sessionNumber   Int      // 1 | 2 | 3
+  subject         String   // Physics | Chemistry | Math | Botany | Zoology
+  completed       Boolean  @default(false)
+  actualMinutes   Int      @default(0) // if partial
+  reasonMissed    String?  // Tired | Forgot | Emergency | Laziness | Other
+  didInstead      String?  // free text
+  notes           String?
+  loggedAt        DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([date, sessionNumber]) // one log per session per day
+  @@map("session_logs")
+}
+
+// ── 3. Custom / ad-hoc study sessions ────────────────────────────────────────
+model CustomStudySession {
+  id              Int      @id @default(autoincrement())
+  date            String   // YYYY-MM-DD in BST
+  subject         String
+  startTime       DateTime // UTC stored, shown as BST
+  endTime         DateTime
+  durationMinutes Int
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@map("custom_study_sessions")
+}
+
+// ── 4. Friday practice sessions ───────────────────────────────────────────────
+model PracticeSession {
+  id              Int      @id @default(autoincrement())
+  date            String   // YYYY-MM-DD in BST
+  subject         String   // Physics | Chemistry | Math | Biology | General
+  durationMinutes Int
+  type            String   // QB | Reading | Mixed
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@map("practice_sessions")
+}
+
+// ── 5. Chapter progress tracker ───────────────────────────────────────────────
+model ChapterProgress {
+  id            Int      @id @default(autoincrement())
+  subject       String   // Physics | Chemistry | HigherMath | Botany | Zoology | ICT
+  chapterNumber Int
+  chapterName   String
+  status        String   @default("not_started") // not_started | in_progress | completed | revised
+  totalTopics   Int?
+  completedTopics Int?   @default(0)
+  lastUpdated   DateTime @default(now()) @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([subject, chapterNumber])
+  @@map("chapter_progress")
+}
+
+// ── 6. AI analysis reports ────────────────────────────────────────────────────
+model AIAnalysisReport {
+  id          Int      @id @default(autoincrement())
+  date        String   // YYYY-MM-DD in BST — the report's reference date
+  reportText  String   // Full markdown report from Claude
+  score       Int      // 0–100 overall performance score
+  periodDays  Int      @default(7) // 7 or 30 day analysis
+  generatedAt DateTime @default(now())
+
+  @@map("ai_analysis_reports")
+}

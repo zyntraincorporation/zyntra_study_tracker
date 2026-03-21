@@ -1,0 +1,72 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+// ── Auth store ────────────────────────────────────────────────────────────────
+export const useAuthStore = create(
+  persist(
+    (set) => ({
+      token:     null,
+      isAuthed:  false,
+
+      login: (token) => {
+        localStorage.setItem('zyntra_token', token);
+        set({ token, isAuthed: true });
+      },
+      logout: () => {
+        localStorage.removeItem('zyntra_token');
+        set({ token: null, isAuthed: false });
+      },
+    }),
+    { name: 'zyntra-auth', partialize: (s) => ({ token: s.token, isAuthed: s.isAuthed }) }
+  )
+);
+
+// ── Timer store (custom study session in progress) ────────────────────────────
+export const useTimerStore = create((set, get) => ({
+  isRunning:  false,
+  subject:    null,
+  startTime:  null,
+  elapsed:    0,       // seconds
+  intervalId: null,
+
+  start: (subject) => {
+    const startTime = new Date().toISOString();
+    const intervalId = setInterval(() => {
+      set((s) => ({ elapsed: s.elapsed + 1 }));
+    }, 1000);
+    set({ isRunning: true, subject, startTime, elapsed: 0, intervalId });
+  },
+
+  stop: () => {
+    const { intervalId, subject, startTime, elapsed } = get();
+    if (intervalId) clearInterval(intervalId);
+    const endTime = new Date().toISOString();
+    const durationMinutes = Math.round(elapsed / 60);
+    set({ isRunning: false, subject: null, startTime: null, elapsed: 0, intervalId: null });
+    return { subject, startTime, endTime, durationMinutes };
+  },
+
+  reset: () => {
+    const { intervalId } = get();
+    if (intervalId) clearInterval(intervalId);
+    set({ isRunning: false, subject: null, startTime: null, elapsed: 0, intervalId: null });
+  },
+}));
+
+// ── UI store (toasts, modal state) ────────────────────────────────────────────
+export const useUIStore = create((set, get) => ({
+  toasts:     [],
+  modals:     {},
+
+  toast: (message, type = 'info', duration = 4000) => {
+    const id = Date.now();
+    set((s) => ({ toasts: [...s.toasts, { id, message, type }] }));
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, duration);
+  },
+
+  openModal:  (name) => set((s) => ({ modals: { ...s.modals, [name]: true  } })),
+  closeModal: (name) => set((s) => ({ modals: { ...s.modals, [name]: false } })),
+  isOpen:     (name) => get().modals[name] || false,
+}));
