@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, Square, Clock, Plus } from 'lucide-react';
+import { Play, Square, Clock } from 'lucide-react';
 import { sessionsAPI } from '../lib/api';
-import { SUBJECTS, formatElapsed, formatDuration, getBSTDateString } from '../lib/schedule';
+import { SUBJECTS_TIMER, SUBJECT_COLORS, formatElapsed, formatDuration, getBSTDateString } from '../lib/schedule';
 import { useTimerStore, useUIStore } from '../store';
 import { SubjectBadge } from '../components/ui/Shared';
+
+// Grouped for UI clarity
+const SUBJECT_GROUPS = [
+  { label: '🔴 BUET Core',  subjects: ['Physics', 'Chemistry', 'Math']              },
+  { label: '🟡 HSC / Other', subjects: ['Botany', 'Zoology', 'English', 'Bangla', 'ICT', 'Other'] },
+];
 
 export default function TimerPage() {
   const isRunning = useTimerStore(s => s.isRunning);
@@ -16,9 +22,9 @@ export default function TimerPage() {
   const qc        = useQueryClient();
 
   const [selectedSubject, setSelectedSubject] = useState('');
-  const [savedNotes, setSavedNotes]           = useState('');
+  const [notes, setNotes]                     = useState('');
 
-  const { data: recentData, refetch } = useQuery({
+  const { data: recentData } = useQuery({
     queryKey: ['custom-sessions'],
     queryFn:  () => sessionsAPI.getCustom(7).then(r => r.data),
   });
@@ -28,81 +34,78 @@ export default function TimerPage() {
     onSuccess:  () => {
       qc.invalidateQueries(['custom-sessions']);
       qc.invalidateQueries(['weekly-stats']);
-      toast('Study session saved! 🎯', 'success');
-      setSavedNotes('');
+      toast('Session save হয়েছে! 🎯', 'success');
+      setNotes('');
     },
-    onError: (err) => toast(err.response?.data?.error || 'Failed to save', 'error'),
+    onError: (err) => toast(err.response?.data?.error || 'Save হয়নি', 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => sessionsAPI.deleteCustom(id),
-    onSuccess:  () => { qc.invalidateQueries(['custom-sessions']); },
+    onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
   });
 
   function handleStart() {
-    if (!selectedSubject) {
-      toast('Please select a subject first', 'warning');
-      return;
-    }
+    if (!selectedSubject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
     start(selectedSubject);
   }
 
   function handleStop() {
     const result = stop();
-    if (result.durationMinutes < 1) {
-      toast('Session too short (< 1 minute)', 'warning');
-      return;
-    }
+    if (result.durationMinutes < 1) { toast('Session অনেক ছোট (১ মিনিটের কম)', 'warning'); return; }
     saveMutation.mutate({
-      subject:         result.subject,
-      startTime:       result.startTime,
-      endTime:         result.endTime,
-      durationMinutes: result.durationMinutes,
-      notes:           savedNotes || null,
-      date:            getBSTDateString(),
+      subject: result.subject, startTime: result.startTime,
+      endTime: result.endTime, durationMinutes: result.durationMinutes,
+      notes: notes || null, date: getBSTDateString(),
     });
   }
 
-  const totalToday = (recentData || [])
-    .filter(s => s.date === getBSTDateString())
-    .reduce((sum, s) => sum + s.durationMinutes, 0);
+  const today      = getBSTDateString();
+  const todaySessions = (recentData || []).filter(s => s.date === today);
+  const totalToday = todaySessions.reduce((s, x) => s + x.durationMinutes, 0);
 
   return (
     <div className="space-y-6">
-      {/* ── Timer card ────────────────────────────────────────────── */}
+
+      {/* ── Timer card ─────────────────────────────────────────────────── */}
       <div className="card p-8 text-center">
-        {/* Clock display */}
-        <div className="mb-6">
-          <div className={`text-7xl font-mono font-bold tracking-tight transition-colors ${
-            isRunning ? 'text-neon-green' : 'text-white/20'
-          }`}>
-            {formatElapsed(elapsed)}
-          </div>
-          {isRunning && subject && (
-            <div className="mt-3 flex items-center justify-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-              <span className="text-sm text-neon-green/80">Studying: <strong>{subject}</strong></span>
-            </div>
-          )}
+        <div className={`text-7xl font-mono font-bold tracking-tight mb-6 transition-colors ${
+          isRunning ? 'text-neon-green' : 'text-white/20'
+        }`}>
+          {formatElapsed(elapsed)}
         </div>
 
-        {/* Subject picker (only when not running) */}
+        {isRunning && subject && (
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+            <span className="text-sm text-neon-green/80">
+              পড়ছি: <strong>{subject}</strong>
+            </span>
+          </div>
+        )}
+
+        {/* Subject picker */}
         {!isRunning && (
           <div className="mb-6">
-            <p className="text-xs text-white/40 mb-3">Select subject to study</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {SUBJECTS.filter(s => s !== 'Other').map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSelectedSubject(s)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
-                    selectedSubject === s
-                      ? 'border-neon-green/40 bg-neon-green/10 text-neon-green'
-                      : 'border-white/10 bg-white/[0.04] text-white/50 hover:text-white hover:border-white/20'
-                  }`}
-                >
-                  {s}
-                </button>
+            <p className="text-xs text-white/40 mb-3">কোন বিষয় পড়বে?</p>
+            <div className="space-y-3">
+              {SUBJECT_GROUPS.map(group => (
+                <div key={group.label}>
+                  <p className="text-[11px] text-white/30 mb-2 text-left">{group.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.subjects.map(s => (
+                      <button key={s} onClick={() => setSelectedSubject(s)}
+                        className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
+                          selectedSubject === s
+                            ? 'border-neon-green/40 bg-neon-green/10 text-neon-green'
+                            : 'border-white/10 bg-white/[0.04] text-white/50 hover:text-white hover:border-white/20'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -111,58 +114,59 @@ export default function TimerPage() {
         {/* Notes when running */}
         {isRunning && (
           <div className="mb-6">
-            <input
-              className="input text-center text-sm"
-              placeholder="What are you studying? (optional)"
-              value={savedNotes}
-              onChange={e => setSavedNotes(e.target.value)}
-            />
+            <input className="input text-center text-sm"
+              placeholder="কী পড়ছো? (optional)"
+              value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
         )}
 
-        {/* Control button */}
+        {/* Start / Stop button */}
         {!isRunning ? (
-          <button
-            onClick={handleStart}
-            disabled={!selectedSubject}
+          <button onClick={handleStart} disabled={!selectedSubject}
             className="inline-flex items-center gap-3 px-10 py-4 rounded-2xl bg-neon-green text-navy-900 font-bold text-lg hover:bg-neon-green/90 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed shadow-neon"
           >
-            <Play size={22} fill="currentColor" />
-            START STUDY
+            <Play size={22} fill="currentColor" /> START STUDY
           </button>
         ) : (
-          <button
-            onClick={handleStop}
-            disabled={saveMutation.isPending}
+          <button onClick={handleStop} disabled={saveMutation.isPending}
             className="inline-flex items-center gap-3 px-10 py-4 rounded-2xl bg-red-500/15 border-2 border-red-500/30 text-red-400 font-bold text-lg hover:bg-red-500/25 transition-all active:scale-95"
           >
-            <Square size={22} fill="currentColor" />
-            STOP & SAVE
+            <Square size={22} fill="currentColor" /> STOP & SAVE
           </button>
         )}
       </div>
 
-      {/* ── Today's total ──────────────────────────────────────────── */}
+      {/* ── Today summary ───────────────────────────────────────────────── */}
       {totalToday > 0 && (
         <div className="card p-4 flex items-center gap-3">
           <Clock size={16} className="text-neon-blue" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-white">
-              Extra study today: <span className="text-neon-blue">{formatDuration(totalToday)}</span>
+              আজ extra পড়েছো: <span className="text-neon-blue">{formatDuration(totalToday)}</span>
             </p>
-            <p className="text-xs text-white/30">
-              {(recentData || []).filter(s => s.date === getBSTDateString()).length} session(s)
-            </p>
+            <p className="text-xs text-white/30">{todaySessions.length}টা session</p>
+          </div>
+          {/* subject breakdown */}
+          <div className="flex gap-1 flex-wrap justify-end">
+            {Object.entries(
+              todaySessions.reduce((acc, s) => {
+                acc[s.subject] = (acc[s.subject] || 0) + s.durationMinutes; return acc;
+              }, {})
+            ).map(([subj, mins]) => (
+              <span key={subj} className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/50">
+                {subj} {formatDuration(mins)}
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* ── Recent sessions ────────────────────────────────────────── */}
+      {/* ── Recent sessions ─────────────────────────────────────────────── */}
       <div>
-        <h2 className="section-heading">Recent extra sessions (7 days)</h2>
+        <h2 className="section-heading">সাম্প্রতিক extra sessions (৭ দিন)</h2>
         {!recentData || recentData.length === 0 ? (
           <div className="card p-6 text-center text-sm text-white/30">
-            No custom study sessions yet. Hit START STUDY above!
+            এখনো কোনো custom session নেই। উপরে START STUDY চাপো!
           </div>
         ) : (
           <div className="space-y-2">
@@ -171,16 +175,12 @@ export default function TimerPage() {
                 <SubjectBadge subject={session.subject} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white/80">{formatDuration(session.durationMinutes)}</p>
-                  <p className="text-xs text-white/30">{session.date}
-                    {session.notes && ` · ${session.notes}`}
+                  <p className="text-xs text-white/30">
+                    {session.date}{session.notes ? ` · ${session.notes}` : ''}
                   </p>
                 </div>
-                <button
-                  onClick={() => deleteMutation.mutate(session.id)}
-                  className="text-white/20 hover:text-red-400 text-xs transition-colors"
-                >
-                  ✕
-                </button>
+                <button onClick={() => deleteMutation.mutate(session.id)}
+                  className="text-white/20 hover:text-red-400 text-xs transition-colors shrink-0">✕</button>
               </div>
             ))}
           </div>

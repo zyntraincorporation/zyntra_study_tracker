@@ -31,19 +31,23 @@ export default function AIReportPage() {
     enabled:  !!activeReportId,
   });
 
-  const analyzeMutation = useMutation({
+ const analyzeMutation = useMutation({
     mutationFn: (days) => aiAPI.analyze(days),
     onMutate:   () => setGen(true),
     onSuccess:  (res) => {
       qc.invalidateQueries(['ai-report-latest']);
       qc.invalidateQueries(['ai-reports']);
       setActiveReportId(null);
-      toast('AI analysis complete! 🧠', 'success');
+      toast('বিশ্লেষণ সম্পন্ন হয়েছে! 🧠', 'success');
       setGen(false);
     },
     onError: (err) => {
-      toast(err.response?.data?.error || 'AI analysis failed', 'error');
+      // Timeout হলেও report save হয়ে যায় — তাই latest report দেখাও
+      qc.invalidateQueries(['ai-report-latest']);
+      qc.invalidateQueries(['ai-reports']);
+      setActiveReportId(null);
       setGen(false);
+      toast('রিপোর্ট তৈরি হচ্ছে, একটু অপেক্ষা করো...', 'info');
     },
   });
 
@@ -99,12 +103,11 @@ export default function AIReportPage() {
         {generating && (
           <div className="mt-4 p-3 rounded-lg bg-neon-purple/5 border border-purple-500/15">
             <p className="text-xs text-purple-300/70 animate-pulse">
-              🧠 GPT-4o mini is analysing your last {period} days of data — sessions, habits, chapters, patterns…
+              🧠 ZYNTRA AI is analysing your last {period} days of data — sessions, habits, chapters, patterns…
             </p>
           </div>
         )}
       </div>
-
       {/* ── Past reports list ────────────────────────────────────────── */}
       {reports && reports.length > 0 && (
         <div>
