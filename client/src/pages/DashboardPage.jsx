@@ -13,27 +13,49 @@ const BUET_SUBJECTS = ['Physics', 'Chemistry', 'HigherMath'];
 const DU_SUBJECTS   = ['Physics', 'Chemistry', 'HigherMath', 'Botany', 'Zoology', 'English1', 'English2'];
 const HSC_SUBJECTS  = ['Physics', 'Chemistry', 'HigherMath', 'Botany', 'Zoology', 'English1', 'English2', 'Bangla1', 'Bangla2', 'ICT'];
 
-// ── Countdown config ───────────────────────────────────────────────────────────
-const BUET_DEADLINE = new Date('2026-12-31T23:59:59+06:00'); // PCM শেষ করার deadline
-const HSC_DEADLINE  = new Date('2027-03-15T00:00:00+06:00'); // HSC exam
-const APP_START     = new Date('2026-03-22T00:00:00+06:00'); // reference start
+const BUET_DEADLINE = new Date('2026-12-31T23:59:59+06:00');
+const HSC_DEADLINE  = new Date('2027-03-15T00:00:00+06:00');
+const APP_START     = new Date('2026-03-22T00:00:00+06:00');
 
 function getCountdown(target) {
-  const now    = Date.now();
-  const diff   = target.getTime() - now;
-  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, pctLeft: 0, pctPassed: 100 };
-
-  const totalMs  = target.getTime() - APP_START.getTime();
-  const passedMs = now - APP_START.getTime();
+  const now       = Date.now();
+  const diff      = target.getTime() - now;
+  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, pctPassed: 100 };
+  const totalMs   = target.getTime() - APP_START.getTime();
+  const passedMs  = now - APP_START.getTime();
   const pctPassed = Math.min(100, Math.max(0, Math.round((passedMs / totalMs) * 100)));
-
-  const days    = Math.floor(diff / 86400000);
-  const hours   = Math.floor((diff % 86400000) / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  const seconds = Math.floor((diff % 60000) / 1000);
-
-  return { days, hours, minutes, seconds, pctLeft: 100 - pctPassed, pctPassed };
+  return {
+    days:    Math.floor(diff / 86400000),
+    hours:   Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+    pctPassed,
+  };
 }
+
+// Subject display labels for HSC card
+const HSC_LABELS = {
+  Physics:    '⚡ Physics',
+  Chemistry:  '🧪 Chemistry',
+  HigherMath: '📐 Higher Math',
+  Botany:     '🌿 Botany',
+  Zoology:    '🦋 Zoology',
+  English1:   '📖 English 1st Paper',
+  English2:   '✍️ English 2nd Paper',
+  Bangla1:    '📚 Bangla 1st Paper',
+  Bangla2:    '🖊️ Bangla 2nd Paper',
+  ICT:        '💻 ICT',
+};
+
+const DU_LABELS = {
+  Physics:    '⚡ Physics',
+  Chemistry:  '🧪 Chemistry',
+  HigherMath: '📐 Math',
+  Botany:     '🌿 Botany',
+  Zoology:    '🦋 Zoology',
+  English1:   '📖 English 1st',
+  English2:   '✍️ English 2nd',
+};
 
 export default function DashboardPage() {
   const navigate  = useNavigate();
@@ -42,7 +64,6 @@ export default function DashboardPage() {
   const { hour, minute } = getBSTTime();
   const isBreak   = isPracticeDay(day);
 
-  // 1-second ticker for countdown
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
@@ -52,7 +73,7 @@ export default function DashboardPage() {
   const buetCD = getCountdown(BUET_DEADLINE);
   const hscCD  = getCountdown(HSC_DEADLINE);
 
-  const { data: todayData,   isLoading: loadingToday } = useQuery({
+  const { data: todayData,  isLoading: loadingToday } = useQuery({
     queryKey: ['sessions-today'],
     queryFn:  () => checkinAPI.getSessionsToday().then(r => r.data),
     refetchInterval: 60000,
@@ -104,20 +125,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-slide-up">
 
-      {/* ══════════════════════════════════════════════════════════════════
-          COUNTDOWN TIMERS
-      ══════════════════════════════════════════════════════════════════ */}
+      {/* ══ COUNTDOWN TIMERS ══════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* ── BUET — HIGHLIGHTED ────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-2xl border-2 border-red-500/50 p-6"
-          style={{ background: 'linear-gradient(135deg, rgba(127,29,29,0.4) 0%, rgba(13,18,36,0.95) 60%)' }}>
-          {/* decorative glow */}
+        {/* BUET — highlighted */}
+        <div
+          className="relative overflow-hidden rounded-2xl border-2 border-red-500/50 p-6"
+          style={{ background: 'linear-gradient(135deg, rgba(127,29,29,0.4) 0%, rgba(13,18,36,0.95) 60%)' }}
+        >
           <div className="absolute -top-10 -right-10 w-48 h-48 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-600/5 rounded-full blur-2xl pointer-events-none" />
 
           <div className="relative">
-            {/* Header */}
+            {/* header */}
             <div className="flex items-center gap-3 mb-1">
               <div className="w-9 h-9 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center shrink-0">
                 <Award size={17} className="text-red-400" />
@@ -132,7 +152,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-[11px] text-red-400/50 mb-5 ml-12">৩১ ডিসেম্বর ২০২৬ পর্যন্ত PCM syllabus শেষ + revision</p>
 
-            {/* DD:HH:MM:SS boxes */}
+            {/* DD:HH:MM:SS */}
             <div className="flex items-center justify-center gap-2 mb-5">
               {[
                 { val: buetCD.days,    label: 'দিন'     },
@@ -153,46 +173,20 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-{/* Syllabus remaining bar — BUET */}
+
+            {/* Syllabus progress bar */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs text-white/40">Syllabus অগ্রগতি (PCM)</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-red-400/70">{buetGoal.pct}% শেষ হয়েছে</span>
+                  <span className="text-xs text-red-400/70">{buetGoal.pct}% শেষ</span>
                   <span className="text-sm font-black text-red-300">{100 - buetGoal.pct}% বাকি</span>
                 </div>
               </div>
               <div className="h-3 rounded-full bg-black/30 border border-red-500/10 overflow-hidden">
                 <div
                   className="h-full rounded-full relative overflow-hidden transition-all duration-1000"
-                  style={{
-                    width: `${buetGoal.pct}%`,
-                    background: 'linear-gradient(90deg, #7f1d1d, #ef4444)',
-                  }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse-slow" />
-                </div>
-              </div>
-              <div className="flex justify-between text-[10px] mt-1.5 text-red-500/40">
-                <span>{buetGoal.done} / {buetGoal.total} chapters সম্পন্ন</span>
-                <span>{buetGoal.total - buetGoal.done} chapters বাকি</span>
-              </div>
-            </div>{/* Syllabus remaining bar — BUET */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-white/40">Syllabus অগ্রগতি (PCM)</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-red-400/70">{buetGoal.pct}% শেষ হয়েছে</span>
-                  <span className="text-sm font-black text-red-300">{100 - buetGoal.pct}% বাকি</span>
-                </div>
-              </div>
-              <div className="h-3 rounded-full bg-black/30 border border-red-500/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full relative overflow-hidden transition-all duration-1000"
-                  style={{
-                    width: `${buetGoal.pct}%`,
-                    background: 'linear-gradient(90deg, #7f1d1d, #ef4444)',
-                  }}
+                  style={{ width: `${buetGoal.pct}%`, background: 'linear-gradient(90deg, #7f1d1d, #ef4444)' }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse-slow" />
                 </div>
@@ -205,7 +199,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── HSC — Normal ─────────────────────────────────────────── */}
+        {/* HSC — normal */}
         <div className="card p-6 border-neon-green/20">
           <div className="flex items-center gap-3 mb-1">
             <div className="w-9 h-9 rounded-xl bg-neon-green/10 border border-neon-green/20 flex items-center justify-center shrink-0">
@@ -240,45 +234,28 @@ export default function DashboardPage() {
             ))}
           </div>
 
-         {/* % remaining bar */}
+          {/* Syllabus progress bar */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-white/40">সময় অগ্রগতি</span>
+              <span className="text-xs text-white/40">Syllabus অগ্রগতি (সব বিষয়)</span>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-white/30">{hscCD.pctPassed}% সময় গেছে</span>
-                <span className="text-sm font-bold text-neon-green">{hscCD.pctLeft}% বাকি</span>
+                <span className="text-xs text-white/30">{hscGoal.pct}% শেষ</span>
+                <span className="text-sm font-bold text-neon-green">{100 - hscGoal.pct}% বাকি</span>
               </div>
             </div>
             <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
               <div className="h-full rounded-full bg-neon-green/60 transition-all duration-1000"
-                style={{ width: `${hscCD.pctPassed}%` }} />
+                style={{ width: `${hscGoal.pct}%` }} />
             </div>
             <div className="flex justify-between text-[10px] mt-1.5 text-white/25">
-              <span>২২ মার্চ ২০২৬</span>
-              <span>১৫ মার্চ ২০২৭</span>
-            </div>
-          </div>{/* % remaining bar */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-white/40">সময় অগ্রগতি</span>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-white/30">{hscCD.pctPassed}% সময় গেছে</span>
-                <span className="text-sm font-bold text-neon-green">{hscCD.pctLeft}% বাকি</span>
-              </div>
-            </div>
-            <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
-              <div className="h-full rounded-full bg-neon-green/60 transition-all duration-1000"
-                style={{ width: `${hscCD.pctPassed}%` }} />
-            </div>
-            <div className="flex justify-between text-[10px] mt-1.5 text-white/25">
-              <span>২২ মার্চ ২০২৬</span>
-              <span>১৫ মার্চ ২০২৭</span>
+              <span>{hscGoal.done} / {hscGoal.total} chapters সম্পন্ন</span>
+              <span>{hscGoal.total - hscGoal.done} chapters বাকি</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Pending alert ─────────────────────────────────────────────── */}
+      {/* ══ PENDING ALERT ══════════════════════════════════════════════════ */}
       {pending.length > 0 && (
         <div
           className="card p-4 border-yellow-500/30 bg-yellow-500/5 flex items-start gap-3 cursor-pointer hover:border-yellow-500/50 transition-colors"
@@ -286,9 +263,7 @@ export default function DashboardPage() {
         >
           <AlertTriangle size={18} className="text-yellow-400 mt-0.5 shrink-0 animate-pulse" />
           <div>
-            <p className="text-sm font-semibold text-yellow-300">
-              {pending.length}টা session লগ করা বাকি
-            </p>
+            <p className="text-sm font-semibold text-yellow-300">{pending.length}টা session লগ করা বাকি</p>
             <p className="text-xs text-yellow-400/60 mt-0.5">
               {pending.map(s => `S${s.sessionNumber} (${s.subjects.join('/')})`).join(', ')} — ট্যাপ করো
             </p>
@@ -296,7 +271,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Top stats ──────────────────────────────────────────────────── */}
+      {/* ══ TOP STATS ══════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="card p-4">
           <p className="text-xs text-white/40 mb-1">Study Streak</p>
@@ -324,7 +299,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Goal infographics ─────────────────────────────────────────── */}
+      {/* ══ GOAL INFOGRAPHICS ══════════════════════════════════════════════ */}
       <div>
         <h2 className="section-heading">লক্ষ্য অনুযায়ী অগ্রগতি</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -341,7 +316,9 @@ export default function DashboardPage() {
                   <p className="text-sm font-bold text-white">BUET</p>
                   <p className="text-[11px] text-white/40">Physics · Chemistry · Math</p>
                 </div>
-                <span className="ml-auto text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 font-semibold">সর্বোচ্চ Priority</span>
+                <span className="ml-auto text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 font-semibold">
+                  সর্বোচ্চ Priority
+                </span>
               </div>
               <div className="flex justify-center mb-3">
                 <ArcGauge pct={buetGoal.pct} color="#ef4444" size={100} />
@@ -350,7 +327,11 @@ export default function DashboardPage() {
               {chapterSummary.filter(s => BUET_SUBJECTS.includes(s.subject)).map(s => {
                 const done = s.completed + s.revised;
                 const pct  = s.total > 0 ? Math.round((done / s.total) * 100) : 0;
-                const meta = { Physics: ['⚡ Physics','bg-sky-400'], Chemistry: ['🧪 Chemistry','bg-emerald-400'], HigherMath: ['📐 Math','bg-violet-400'] };
+                const meta = {
+                  Physics:    ['⚡ Physics',   'bg-sky-400'],
+                  Chemistry:  ['🧪 Chemistry', 'bg-emerald-400'],
+                  HigherMath: ['📐 Math',      'bg-violet-400'],
+                };
                 return (
                   <div key={s.subject} className="mb-2.5">
                     <div className="flex justify-between text-xs mb-1">
@@ -358,7 +339,8 @@ export default function DashboardPage() {
                       <span className="text-white/40">{done}/{s.total}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                      <div className={`h-full rounded-full ${meta[s.subject]?.[1]} transition-all duration-700`} style={{ width: `${pct}%` }} />
+                      <div className={`h-full rounded-full ${meta[s.subject]?.[1]} transition-all duration-700`}
+                        style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
@@ -384,22 +366,22 @@ export default function DashboardPage() {
             {chapterSummary.filter(s => DU_SUBJECTS.includes(s.subject)).map(s => {
               const done = s.completed + s.revised;
               const pct  = s.total > 0 ? Math.round((done / s.total) * 100) : 0;
-              const labels = { Physics:'⚡ Physics', Chemistry:'🧪 Chemistry', HigherMath:'📐 Math', Botany:'🌿 Botany', Zoology:'🦋 Zoology', English1:'📖 Eng 1st', English2:'✍️ Eng 2nd' };
               return (
                 <div key={s.subject} className="mb-2">
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-white/55 truncate">{labels[s.subject]}</span>
+                    <span className="text-white/55 truncate">{DU_LABELS[s.subject] || s.subject}</span>
                     <span className="text-white/35 shrink-0 ml-1">{done}/{s.total}</span>
                   </div>
                   <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full rounded-full bg-blue-400 transition-all duration-700" style={{ width: `${pct}%` }} />
+                    <div className="h-full rounded-full bg-blue-400 transition-all duration-700"
+                      style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* HSC */}
+          {/* HSC — shows all 10 subjects with specific names */}
           <div className="card p-5 border-neon-green/15">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center">
@@ -417,41 +399,45 @@ export default function DashboardPage() {
             {chapterSummary.filter(s => HSC_SUBJECTS.includes(s.subject)).map(s => {
               const done = s.completed + s.revised;
               const pct  = s.total > 0 ? Math.round((done / s.total) * 100) : 0;
-              const em = { Physics:'⚡', Chemistry:'🧪', HigherMath:'📐', Botany:'🌿', Zoology:'🦋', English1:'📖', English2:'✍️', Bangla1:'📚', Bangla2:'🖊️', ICT:'💻' };
               return (
                 <div key={s.subject} className="mb-2">
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-white/55">{em[s.subject]} {s.subject === 'HigherMath' ? 'Math' : s.subject.replace(/[12]$/,'')}</span>
-                    <span className="text-white/35">{done}/{s.total}</span>
+                    <span className="text-white/55 truncate">{HSC_LABELS[s.subject] || s.subject}</span>
+                    <span className="text-white/35 shrink-0 ml-1">{done}/{s.total}</span>
                   </div>
                   <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full rounded-full bg-neon-green/60 transition-all duration-700" style={{ width: `${pct}%` }} />
+                    <div className="h-full rounded-full bg-neon-green/60 transition-all duration-700"
+                      style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
             })}
           </div>
+
         </div>
       </div>
 
-      {/* ── Today's schedule ───────────────────────────────────────────── */}
+      {/* ══ TODAY'S SCHEDULE ═══════════════════════════════════════════════ */}
       <div>
         <h2 className="section-heading">আজকের Schedule</h2>
-        {loadingToday ? <LoadingCard rows={3} />
-          : isBreak ? <PracticeDayCard day={day} />
-          : sessions.length === 0 ? (
-            <div className="card p-6 text-center text-white/30 text-sm">Schedule data নেই</div>
-          ) : (
-            <div className="space-y-3">
-              {sessions.map(s => (
-                <SessionCard key={s.sessionNumber} session={s}
-                  currentHour={hour} currentMinute={minute} onLog={() => openModal('pending-session')} />
-              ))}
-            </div>
-          )}
+        {loadingToday ? (
+          <LoadingCard rows={3} />
+        ) : isBreak ? (
+          <PracticeDayCard day={day} />
+        ) : sessions.length === 0 ? (
+          <div className="card p-6 text-center text-white/30 text-sm">Schedule data নেই</div>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map(s => (
+              <SessionCard key={s.sessionNumber} session={s}
+                currentHour={hour} currentMinute={minute}
+                onLog={() => openModal('pending-session')} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ── Quick actions ──────────────────────────────────────────────── */}
+      {/* ══ QUICK ACTIONS ══════════════════════════════════════════════════ */}
       <div>
         <h2 className="section-heading">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -485,7 +471,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Morning status ─────────────────────────────────────────────── */}
+      {/* ══ MORNING STATUS ═════════════════════════════════════════════════ */}
       <MorningStatusCard checkin={morningData?.checkin} onEdit={() => openModal('morning')} />
 
       <MorningCheckinModal />
@@ -503,7 +489,8 @@ function ArcGauge({ pct, color, size = 100 }) {
         fill="none" stroke="#ffffff10" strokeWidth={size*.08} strokeLinecap="round" />
       <path d={`M ${size*.12} ${size*.56} A ${r} ${r} 0 0 1 ${size*.88} ${size*.56}`}
         fill="none" stroke={color} strokeWidth={size*.08} strokeLinecap="round"
-        strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1s ease' }} />
+        strokeDasharray={`${dash} ${circ}`}
+        style={{ transition: 'stroke-dasharray 1s ease' }} />
       <text x={size/2} y={size*.48} textAnchor="middle" fill={color}
         fontSize={size*.2} fontWeight="700" fontFamily="Inter,sans-serif">{pct}%</text>
     </svg>
@@ -512,22 +499,25 @@ function ArcGauge({ pct, color, size = 100 }) {
 
 // ── Session card ───────────────────────────────────────────────────────────────
 function SessionCard({ session, currentHour, currentMinute, onLog }) {
-  const slot = SESSION_SLOTS[session.sessionNumber];
-  const nowM = currentHour * 60 + currentMinute;
+  const slot   = SESSION_SLOTS[session.sessionNumber];
+  const nowM   = currentHour * 60 + currentMinute;
   const startM = slot.startHour * 60 + slot.startMin;
-  let endM = slot.endHour * 60 + slot.endMin;
+  let endM     = slot.endHour * 60 + slot.endMin;
   if (slot.endHour < slot.startHour) endM += 1440;
   const status = session.log
     ? (session.log.completed ? 'done' : 'missed')
     : nowM < startM ? 'upcoming' : nowM < endM ? 'active' : 'pending';
   const badges = {
-    done: <span className="badge-green">✓ Done</span>,
-    missed: <span className="badge-red">✗ Missed</span>,
-    active: <span className="badge-blue animate-pulse-slow">● Live now</span>,
+    done:     <span className="badge-green">✓ Done</span>,
+    missed:   <span className="badge-red">✗ Missed</span>,
+    active:   <span className="badge-blue animate-pulse-slow">● Live now</span>,
     upcoming: <span className="badge-gray">Upcoming</span>,
-    pending: <span className="badge-yellow cursor-pointer" onClick={onLog}>! Log করো</span>,
+    pending:  <span className="badge-yellow cursor-pointer" onClick={onLog}>! Log করো</span>,
   };
-  const borders = { done:'border-neon-green/15', missed:'border-red-500/15', active:'border-neon-blue/30', upcoming:'border-white/[0.06]', pending:'border-yellow-500/20' };
+  const borders = {
+    done: 'border-neon-green/15', missed: 'border-red-500/15',
+    active: 'border-neon-blue/30', upcoming: 'border-white/[0.06]', pending: 'border-yellow-500/20',
+  };
   return (
     <div className={`card p-4 border ${borders[status] || ''}`}>
       <div className="flex items-start justify-between gap-3">
@@ -583,13 +573,19 @@ function MorningStatusCard({ checkin, onEdit }) {
         ) : (
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className={checkin.wokeUpAt6 ? 'text-neon-green' : 'text-red-400'}>{checkin.wokeUpAt6 ? '✓' : '✗'}</span>
+              <span className={checkin.wokeUpAt6 ? 'text-neon-green' : 'text-red-400'}>
+                {checkin.wokeUpAt6 ? '✓' : '✗'}
+              </span>
               <span className="text-sm text-white/60">৬টায় উঠেছি</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={checkin.studiedBeforeCollege ? 'text-neon-green' : 'text-red-400'}>{checkin.studiedBeforeCollege ? '✓' : '✗'}</span>
+              <span className={checkin.studiedBeforeCollege ? 'text-neon-green' : 'text-red-400'}>
+                {checkin.studiedBeforeCollege ? '✓' : '✗'}
+              </span>
               <span className="text-sm text-white/60">কলেজের আগে পড়া</span>
-              {checkin.studiedBeforeCollege && checkin.preCollegeSubject && <SubjectBadge subject={checkin.preCollegeSubject} />}
+              {checkin.studiedBeforeCollege && checkin.preCollegeSubject && (
+                <SubjectBadge subject={checkin.preCollegeSubject} />
+              )}
             </div>
             <button onClick={onEdit} className="ml-auto btn-ghost text-xs">Edit</button>
           </div>
