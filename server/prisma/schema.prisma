@@ -103,3 +103,48 @@ model AIAnalysisReport {
 
   @@map("ai_analysis_reports")
 }
+
+// ── 7. Revision logs (spaced repetition) ─────────────────────────────────────
+model RevisionLog {
+  id              Int      @id @default(autoincrement())
+  chapterId       Int
+  subject         String
+  chapterNumber   Int
+  chapterName     String
+  revisedAt       DateTime @default(now())
+  revisionCount   Int      @default(1)  // কততম revision
+  nextDueDate     String?               // YYYY-MM-DD BST
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@map("revision_logs")
+}
+
+// ── 8. Daily notes ────────────────────────────────────────────────────────────
+model DailyNote {
+  id        Int      @id @default(autoincrement())
+  date      String   // YYYY-MM-DD BST
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date])
+  @@map("daily_notes")
+}
+
+// ── 9. Mistake log ────────────────────────────────────────────────────────────
+model MistakeLog {
+  id            Int      @id @default(autoincrement())
+  date          String   // YYYY-MM-DD BST
+  subject       String   // Physics | Chemistry | Math | etc.
+  topic         String   // chapter/topic name
+  mistakeType   String   // Concept | Formula | Calculation | Silly | Memory
+  description   String   // what went wrong
+  correction    String?  // correct answer/approach
+  source        String?  // Practice | Exam | QB | Homework
+  resolved      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("mistake_logs")
+}

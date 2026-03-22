@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CheckSquare, Timer, BarChart2,
+  LayoutDashboard, CheckSquare, Timer, BarChart2, RotateCcw, AlertTriangle,
   BookOpen, Sparkles, LogOut, Menu, X, Zap
 } from 'lucide-react';
 import { useAuthStore } from '../../store';
@@ -15,7 +15,9 @@ const NAV = [
   { to: '/timer',    icon: Timer,           label: 'Study Timer' },
   { to: '/stats',    icon: BarChart2,       label: 'Weekly Stats' },
   { to: '/chapters', icon: BookOpen,        label: 'Chapters'  },
-  { to: '/ai',       icon: Sparkles,        label: 'AI Mentor' },
+  { to: '/ai',       icon: Sparkles,   label: 'AI Mentor'  },
+  { to: '/revision', icon: RotateCcw,  label: 'Revision'   },
+  { to: '/mistakes', icon: AlertTriangle, label: 'Mistakes'   },
 ];
 
 export default function AppLayout() {

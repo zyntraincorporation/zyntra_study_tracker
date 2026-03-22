@@ -7,7 +7,9 @@ import CheckinPage from './pages/CheckinPage';
 import TimerPage from './pages/TimerPage';
 import StatsPage from './pages/StatsPage';
 import ChaptersPage from './pages/ChaptersPage';
-import AIReportPage from './pages/AIReportPage';
+import AIReportPage  from './pages/AIReportPage';
+import RevisionPage  from './pages/RevisionPage';
+import MistakePage   from './pages/MistakePage';
 import Toast from './components/ui/Toast';
 
 function PrivateRoute({ children }) {
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="stats"         element={<StatsPage />} />
           <Route path="chapters"      element={<ChaptersPage />} />
           <Route path="ai"            element={<AIReportPage />} />
+          <Route path="revision"      element={<RevisionPage />} />
+          <Route path="mistakes"      element={<MistakePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

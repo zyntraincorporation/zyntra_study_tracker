@@ -7,7 +7,8 @@ import { useAuthStore } from '../store';
 export default function LoginPage() {
   const [pin, setPin]       = useState(['', '', '', '']);
   const [error, setError]   = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]       = useState(false);
+const [serverWaking, setWaking]   = useState(false);
   const refs   = [useRef(), useRef(), useRef(), useRef()];
   const login  = useAuthStore((s) => s.login);
   const isAuthed = useAuthStore((s) => s.isAuthed);
@@ -39,14 +40,19 @@ export default function LoginPage() {
   }
 
   async function submitPin(fullPin) {
-    setLoading(true);
-    setError('');
-    try {
-      const { data } = await authAPI.login(fullPin || pin.join(''));
+  setLoading(true);
+  setError('');
+  setWaking(false);
+  const wakeTimer = setTimeout(() => setWaking(true), 4000);
+  try {
+    const { data } = await authAPI.login(fullPin || pin.join(''));
+    clearTimeout(wakeTimer);
       login(data.token);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.error || 'Incorrect PIN');
+    clearTimeout(wakeTimer);
+    setWaking(false);
+    setError(err.response?.data?.error || 'Incorrect PIN');
       setPin(['', '', '', '']);
       setTimeout(() => refs[0].current?.focus(), 50);
     } finally {
@@ -108,6 +114,12 @@ export default function LoginPage() {
           {error && (
             <p className="text-center text-sm text-red-400 mb-4 animate-fade-in">{error}</p>
           )}
+          {serverWaking && !error && (
+  <div className="text-center mb-4 animate-fade-in">
+    <p className="text-xs text-yellow-400/80">⏳ Server জেগে উঠছে... একটু অপেক্ষা করো</p>
+    <p className="text-[11px] text-white/25 mt-1">প্রথমবার ঢুকতে ৩০-৬০ সেকেন্ড লাগতে পারে</p>
+  </div>
+)}
 
           {/* Submit */}
           <button

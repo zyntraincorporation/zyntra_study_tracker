@@ -16,6 +16,9 @@ const sessionsRoutes = require('./routes/sessions');
 const chaptersRoutes = require('./routes/chapters');
 const statsRoutes    = require('./routes/stats');
 const aiRoutes       = require('./routes/ai');
+const revisionsRoutes = require('./routes/revisions');
+const mistakesRoutes  = require('./routes/mistakes');
+const notesRoutes     = require('./routes/notes');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -51,7 +54,10 @@ app.use('/api/checkin',  checkinRoutes);
 app.use('/api/sessions', sessionsRoutes);
 app.use('/api/chapters', chaptersRoutes);
 app.use('/api/stats',    statsRoutes);
-app.use('/api/ai',       aiRoutes);
+app.use('/api/ai',        aiRoutes);
+app.use('/api/revisions', revisionsRoutes);
+app.use('/api/mistakes',  mistakesRoutes);
+app.use('/api/notes',     notesRoutes);
 
 // Health check — Render uses this
 app.get('/health', (req, res) => {

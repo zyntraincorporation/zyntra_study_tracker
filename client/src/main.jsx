@@ -7,13 +7,17 @@ import './index.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime:   60_000,
-      gcTime:      5 * 60_000,
-      retry:       1,
+      staleTime:            60_000,
+      gcTime:               5 * 60_000,
+      retry:                1,
       refetchOnWindowFocus: false,
     },
   },
 });
+
+// ── App খোলার সাথে সাথে server wake-up request পাঠাও ──────────────────────
+const API = import.meta.env.VITE_API_BASE_URL || '';
+fetch(`${API}/health`).catch(() => {});
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

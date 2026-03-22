@@ -4,7 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 120000,
+  timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -108,4 +108,26 @@ export const aiAPI = {
   getReports:     ()     => api.get('/api/ai/reports'),
   getLatest:      ()     => api.get('/api/ai/reports/latest'),
   getReport:      (id)   => api.get(`/api/ai/reports/${id}`),
+};
+
+export const revisionsAPI = {
+  getDue:     ()          => api.get('/api/revisions/due'),
+  getHistory: (days)      => api.get(`/api/revisions/history?days=${days || 30}`),
+  getStats:   ()          => api.get('/api/revisions/stats'),
+  logRevision:(data)      => api.post('/api/revisions', data),
+};
+
+export const notesAPI = {
+  getToday:   ()          => api.get('/api/notes/today'),
+  getAll:     (days)      => api.get(`/api/notes?days=${days || 30}`),
+  save:       (data)      => api.post('/api/notes', data),
+  delete:     (date)      => api.delete(`/api/notes/${date}`),
+};
+
+export const mistakesAPI = {
+  getAll:   (params = {}) => api.get('/api/mistakes', { params }),
+  getStats: ()             => api.get('/api/mistakes/stats'),
+  create:   (data)         => api.post('/api/mistakes', data),
+  update:   (id, data)     => api.patch(`/api/mistakes/${id}`, data),
+  delete:   (id)           => api.delete(`/api/mistakes/${id}`),
 };
