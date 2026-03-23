@@ -19,6 +19,7 @@ const aiRoutes       = require('./routes/ai');
 const revisionsRoutes = require('./routes/revisions');
 const mistakesRoutes  = require('./routes/mistakes');
 const notesRoutes     = require('./routes/notes');
+const targetsRoutes   = require('./routes/targets');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -58,6 +59,7 @@ app.use('/api/ai',        aiRoutes);
 app.use('/api/revisions', revisionsRoutes);
 app.use('/api/mistakes',  mistakesRoutes);
 app.use('/api/notes',     notesRoutes);
+app.use('/api/targets',   targetsRoutes);
 
 // Health check — Render uses this
 // ── Keep-alive: প্রতি ১৪ মিনিটে নিজেকে ping করো ──────────────────────────────

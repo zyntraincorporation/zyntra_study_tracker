@@ -148,3 +148,21 @@ model MistakeLog {
 
   @@map("mistake_logs")
 }
+
+// ── 10. Monthly chapter targets ───────────────────────────────────────────────
+model MonthlyTarget {
+  id            Int      @id @default(autoincrement())
+  yearMonth     String   // "2026-04" format
+  subject       String   // Physics | Chemistry | HigherMath | etc.
+  chapterNumber Int
+  chapterName   String
+  difficulty    String   // easy | medium | hard
+  completed     Boolean  @default(false)
+  completedAt   DateTime?
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([yearMonth, subject, chapterNumber])
+  @@map("monthly_targets")
+}

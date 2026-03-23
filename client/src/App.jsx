@@ -10,6 +10,7 @@ import ChaptersPage from './pages/ChaptersPage';
 import AIReportPage  from './pages/AIReportPage';
 import RevisionPage  from './pages/RevisionPage';
 import MistakePage   from './pages/MistakePage';
+import RoutinePage   from './pages/RoutinePage';
 import Toast from './components/ui/Toast';
 
 function PrivateRoute({ children }) {
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="ai"            element={<AIReportPage />} />
           <Route path="revision"      element={<RevisionPage />} />
           <Route path="mistakes"      element={<MistakePage />} />
+          <Route path="routine"       element={<RoutinePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

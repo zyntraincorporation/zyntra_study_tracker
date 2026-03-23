@@ -131,3 +131,11 @@ export const mistakesAPI = {
   update:   (id, data)     => api.patch(`/api/mistakes/${id}`, data),
   delete:   (id)           => api.delete(`/api/mistakes/${id}`),
 };
+
+export const targetsAPI = {
+  getByMonth:  (month)        => api.get(`/api/targets?month=${month}`),
+  getMonths:   ()             => api.get('/api/targets/months'),
+  seedMonth:   (month, targets) => api.post('/api/targets/seed', { month, targets }),
+  update:      (id, data)     => api.patch(`/api/targets/${id}`, data),
+  delete:      (id)           => api.delete(`/api/targets/${id}`),
+};
