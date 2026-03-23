@@ -60,6 +60,20 @@ app.use('/api/mistakes',  mistakesRoutes);
 app.use('/api/notes',     notesRoutes);
 
 // Health check — Render uses this
+// ── Keep-alive: প্রতি ১৪ মিনিটে নিজেকে ping করো ──────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL || '';
+  if (SELF_URL) {
+    setInterval(async () => {
+      try {
+        await fetch(`${SELF_URL}/health`);
+        console.log('[Keep-alive] Pinged successfully');
+      } catch (e) {
+        console.log('[Keep-alive] Ping failed:', e.message);
+      }
+    }, 14 * 60 * 1000);
+  }
+}
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
