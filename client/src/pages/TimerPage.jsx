@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Play, Square, Clock, Timer, RotateCcw, Coffee } from 'lucide-react';
 import { sessionsAPI } from '../lib/api';
@@ -7,15 +7,15 @@ import { useTimerStore, useUIStore } from '../store';
 import { SubjectBadge } from '../components/ui/Shared';
 
 const SUBJECT_GROUPS = [
-  { label: '🔴 BUET Core',   subjects: ['Physics', 'Chemistry', 'Math']                             },
-  { label: '🟡 HSC / Other', subjects: ['Botany', 'Zoology', 'English', 'Bangla', 'ICT', 'Other']  },
+  { label: '🔴 BUET Core',   subjects: ['Physics', 'Chemistry', 'Math']                            },
+  { label: '🟡 HSC / Other', subjects: ['Botany', 'Zoology', 'English', 'Bangla', 'ICT', 'Other'] },
 ];
 
 const PRESETS = [
-  { label: '25 / 5',  work: 25, brk: 5,  desc: 'Classic Pomodoro'  },
-  { label: '45 / 10', work: 45, brk: 10, desc: 'Deep work session'  },
-  { label: '50 / 10', work: 50, brk: 10, desc: 'Study marathon'     },
-  { label: '90 / 20', work: 90, brk: 20, desc: 'Ultradian rhythm'   },
+  { label: '25 / 5',  work: 25, brk: 5,  desc: 'Classic Pomodoro' },
+  { label: '45 / 10', work: 45, brk: 10, desc: 'Deep work session' },
+  { label: '50 / 10', work: 50, brk: 10, desc: 'Study marathon'    },
+  { label: '90 / 20', work: 90, brk: 20, desc: 'Ultradian rhythm'  },
 ];
 
 export default function TimerPage() {
@@ -24,14 +24,12 @@ export default function TimerPage() {
     <div className="space-y-5">
       <div className="flex gap-1 bg-navy-700/40 rounded-xl p-1">
         {[
-          { key: 'free', label: '⏱ Free Timer'  },
-          { key: 'pomo', label: '🍅 Pomodoro'    },
+          { key: 'free', label: '⏱ Free Timer' },
+          { key: 'pomo', label: '🍅 Pomodoro'   },
         ].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === t.key
-                ? 'bg-neon-green/15 text-neon-green'
-                : 'text-white/40 hover:text-white'
+              activeTab === t.key ? 'bg-neon-green/15 text-neon-green' : 'text-white/40 hover:text-white'
             }`}
           >{t.label}</button>
         ))}
@@ -43,7 +41,7 @@ export default function TimerPage() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// FREE TIMER
+// FREE TIMER — Date.now() based, background-safe
 // ══════════════════════════════════════════════════════════════════
 function FreeTimer() {
   const isRunning = useTimerStore(s => s.isRunning);
@@ -74,7 +72,7 @@ function FreeTimer() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => sessionsAPI.deleteCustom(id),
-    onSuccess: () => qc.invalidateQueries(['custom-sessions']),
+    onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
   });
 
   function handleStart() {
@@ -99,7 +97,6 @@ function FreeTimer() {
   return (
     <div className="space-y-6">
       <div className="card p-8 text-center">
-        {/* Clock */}
         <div className={`text-7xl font-mono font-bold tracking-tight mb-6 transition-colors ${
           isRunning ? 'text-neon-green' : 'text-white/20'
         }`}>
@@ -158,7 +155,6 @@ function FreeTimer() {
         )}
       </div>
 
-      {/* Today summary */}
       {totalToday > 0 && (
         <div className="card p-4 flex items-center gap-3">
           <Clock size={16} className="text-neon-blue" />
@@ -182,7 +178,6 @@ function FreeTimer() {
         </div>
       )}
 
-      {/* Recent sessions */}
       <div>
         <h2 className="section-heading">সাম্প্রতিক extra sessions (৭ দিন)</h2>
         {!recentData || recentData.length === 0 ? (
@@ -208,29 +203,43 @@ function FreeTimer() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// POMODORO TIMER
+// POMODORO — deadline-based countdown, background-safe
+// phaseEndAt = exact timestamp যখন phase শেষ হবে
+// প্রতি tick এ: secondsLeft = Math.ceil((phaseEndAt - Date.now()) / 1000)
+// তাই background এ গেলেও ফিরে এলে সঠিক সময় দেখাবে
 // ══════════════════════════════════════════════════════════════════
 function PomodoroTimer() {
   const toast = useUIStore(s => s.toast);
   const qc    = useQueryClient();
 
-  const [preset, setPreset]             = useState(PRESETS[0]);
-  const [phase, setPhase]               = useState('idle'); // idle | work | break
-  const [secondsLeft, setSecondsLeft]   = useState(PRESETS[0].work * 60);
-  const [round, setRound]               = useState(1);
-  const [totalRounds, setTotalRounds]   = useState(4);
-  const [subject, setSubject]           = useState('');
-  const [sessionStart, setSessionStart] = useState(null);
+  const [preset,        setPreset]        = useState(PRESETS[0]);
+  const [phase,         setPhase]         = useState('idle');
+  const [phaseEndAt,    setPhaseEndAt]    = useState(null);  // ms timestamp
+  const [secondsLeft,   setSecondsLeft]   = useState(PRESETS[0].work * 60);
+  const [round,         setRound]         = useState(1);
+  const [totalRounds,   setTotalRounds]   = useState(4);
+  const [subject,       setSubject]       = useState('');
+  const [sessionStart,  setSessionStart]  = useState(null);
   const [totalWorkSecs, setTotalWorkSecs] = useState(0);
-  const intervalRef = useRef(null);
-  const phaseRef    = useRef(phase);
-  const roundRef    = useRef(round);
-  phaseRef.current  = phase;
-  roundRef.current  = round;
+
+  const intervalRef    = useRef(null);
+  const phaseRef       = useRef(phase);
+  const roundRef       = useRef(round);
+  const presetRef      = useRef(preset);
+  const subjectRef     = useRef(subject);
+  const sessionStartRef = useRef(sessionStart);
+  const totalRoundsRef = useRef(totalRounds);
+
+  phaseRef.current       = phase;
+  roundRef.current       = round;
+  presetRef.current      = preset;
+  subjectRef.current     = subject;
+  sessionStartRef.current = sessionStart;
+  totalRoundsRef.current = totalRounds;
 
   const saveMutation = useMutation({
     mutationFn: (data) => sessionsAPI.saveCustom(data),
-    onSuccess: () => {
+    onSuccess:  () => {
       qc.invalidateQueries(['custom-sessions']);
       qc.invalidateQueries(['weekly-stats']);
     },
@@ -245,67 +254,106 @@ function PomodoroTimer() {
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.8);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
     } catch {}
   }
 
-  function handlePhaseEnd(currentPhase, currentRound) {
+  // Phase end handler — called when countdown hits 0
+  const handlePhaseEnd = useCallback(() => {
     clearInterval(intervalRef.current);
+    const currentPhase  = phaseRef.current;
+    const currentRound  = roundRef.current;
+    const currentPreset = presetRef.current;
+    const currentTotal  = totalRoundsRef.current;
 
     if (currentPhase === 'work') {
-      setTotalWorkSecs(t => t + preset.work * 60);
-      if (subject && sessionStart) {
+      const workSecs = currentPreset.work * 60;
+      setTotalWorkSecs(t => t + workSecs);
+
+      if (subjectRef.current && sessionStartRef.current) {
         saveMutation.mutate({
-          subject, date: getBSTDateString(),
-          startTime:       sessionStart,
+          subject:         subjectRef.current,
+          date:            getBSTDateString(),
+          startTime:       sessionStartRef.current,
           endTime:         new Date().toISOString(),
-          durationMinutes: preset.work,
-          notes:           `🍅 Pomodoro #${currentRound} (${preset.work} min)`,
+          durationMinutes: currentPreset.work,
+          notes:           `🍅 Pomodoro #${currentRound} (${currentPreset.work} min)`,
         });
       }
+
       playBeep(440);
 
-      if (currentRound >= totalRounds) {
+      if (currentRound >= currentTotal) {
         toast('🎉 সব rounds শেষ! অসাধারণ!', 'success');
         setPhase('idle');
         setRound(1);
-        setSecondsLeft(preset.work * 60);
+        setPhaseEndAt(null);
+        setSecondsLeft(currentPreset.work * 60);
       } else {
-        toast(`🍅 Round ${currentRound} শেষ! ${preset.brk} মিনিট break।`, 'success');
+        toast(`🍅 Round ${currentRound} শেষ! ${currentPreset.brk} মিনিট break।`, 'success');
+        const endAt = Date.now() + currentPreset.brk * 60 * 1000;
         setPhase('break');
-        setSecondsLeft(preset.brk * 60);
+        setPhaseEndAt(endAt);
+        setSecondsLeft(currentPreset.brk * 60);
       }
     } else if (currentPhase === 'break') {
       playBeep(660);
       const nextRound = currentRound + 1;
       toast(`☕ Break শেষ! Round ${nextRound} শুরু করো।`, 'info');
       setRound(nextRound);
+      const start = new Date().toISOString();
+      setSessionStart(start);
+      sessionStartRef.current = start;
+      const endAt = Date.now() + currentPreset.work * 60 * 1000;
       setPhase('work');
-      setSecondsLeft(preset.work * 60);
-      setSessionStart(new Date().toISOString());
+      setPhaseEndAt(endAt);
+      setSecondsLeft(currentPreset.work * 60);
     }
-  }
+  }, []);
 
+  // Tick — recalculate from phaseEndAt every second
   useEffect(() => {
-    if (phase === 'idle') return;
+    if (phase === 'idle' || !phaseEndAt) return;
+
+    clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
-      setSecondsLeft(s => {
-        if (s <= 1) {
-          handlePhaseEnd(phaseRef.current, roundRef.current);
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
+      const remaining = Math.ceil((phaseEndAt - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setSecondsLeft(0);
+        handlePhaseEnd();
+      } else {
+        setSecondsLeft(remaining);
+      }
+    }, 500); // 500ms interval — catches up faster after background
+
     return () => clearInterval(intervalRef.current);
-  }, [phase]);
+  }, [phase, phaseEndAt, handlePhaseEnd]);
+
+  // Page visibility — recalculate immediately when tab becomes visible
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && phaseEndAt && phase !== 'idle') {
+        const remaining = Math.ceil((phaseEndAt - Date.now()) / 1000);
+        if (remaining <= 0) {
+          handlePhaseEnd();
+        } else {
+          setSecondsLeft(remaining);
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [phaseEndAt, phase, handlePhaseEnd]);
 
   function startWork() {
     if (!subject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
-    setSessionStart(new Date().toISOString());
+    const start = new Date().toISOString();
+    setSessionStart(start);
+    sessionStartRef.current = start;
     setTotalWorkSecs(0);
     setRound(1);
+    const endAt = Date.now() + preset.work * 60 * 1000;
+    setPhaseEndAt(endAt);
     setSecondsLeft(preset.work * 60);
     setPhase('work');
   }
@@ -313,11 +361,13 @@ function PomodoroTimer() {
   function pause() {
     clearInterval(intervalRef.current);
     setPhase('idle');
+    setPhaseEndAt(null);
   }
 
   function reset() {
     clearInterval(intervalRef.current);
     setPhase('idle');
+    setPhaseEndAt(null);
     setRound(1);
     setTotalWorkSecs(0);
     setSessionStart(null);
@@ -327,24 +377,24 @@ function PomodoroTimer() {
   function changePreset(p) {
     reset();
     setPreset(p);
+    presetRef.current = p;
     setTimeout(() => setSecondsLeft(p.work * 60), 20);
   }
 
-  const isRunning  = phase !== 'idle';
-  const totalSecs  = phase === 'break' ? preset.brk * 60 : preset.work * 60;
-  const pct        = totalSecs > 0 ? Math.round(((totalSecs - secondsLeft) / totalSecs) * 100) : 0;
-  const ringColor  = phase === 'work' ? '#ef4444' : phase === 'break' ? '#00ff87' : '#ffffff20';
-  const mins       = Math.floor(secondsLeft / 60);
-  const secs       = secondsLeft % 60;
+  const isRunning = phase !== 'idle';
+  const totalSecs = phase === 'break' ? preset.brk * 60 : preset.work * 60;
+  const pct       = totalSecs > 0 ? Math.round(((totalSecs - secondsLeft) / totalSecs) * 100) : 0;
+  const ringColor = phase === 'work' ? '#ef4444' : phase === 'break' ? '#00ff87' : '#ffffff20';
+  const mins      = Math.floor(secondsLeft / 60);
+  const secs      = secondsLeft % 60;
 
-  // SVG ring
   const R = 90, CX = 110, CY = 110, circ = 2 * Math.PI * R;
   const dash = (pct / 100) * circ;
 
   return (
     <div className="space-y-5">
 
-      {/* Preset buttons */}
+      {/* Presets */}
       <div className="grid grid-cols-4 gap-2">
         {PRESETS.map(p => (
           <button key={p.label} onClick={() => changePreset(p)}
@@ -360,7 +410,7 @@ function PomodoroTimer() {
         ))}
       </div>
 
-      {/* Ring timer card */}
+      {/* Ring card */}
       <div className="card p-6 flex flex-col items-center">
 
         {/* Phase badge */}
@@ -382,7 +432,7 @@ function PomodoroTimer() {
               stroke={ringColor} strokeWidth="12" strokeLinecap="round"
               strokeDasharray={`${dash} ${circ}`}
               transform={`rotate(-90 ${CX} ${CY})`}
-              style={{ transition: 'stroke-dasharray 0.5s ease' }}
+              style={{ transition: 'stroke-dasharray 0.3s ease' }}
             />
             <text x={CX} y={CY - 12} textAnchor="middle" fill="white"
               fontSize="40" fontWeight="800" fontFamily="Inter,monospace">
@@ -390,9 +440,9 @@ function PomodoroTimer() {
             </text>
             <text x={CX} y={CY + 18} textAnchor="middle" fill="#ffffff50"
               fontSize="13" fontFamily="Inter,sans-serif">
-              {phase === 'work' ? `${preset.work} min focus`
-                : phase === 'break' ? `${preset.brk} min break`
-                : 'পড়তে শুরু করো'}
+              {phase === 'work'  ? `${preset.work} min focus`
+               : phase === 'break' ? `${preset.brk} min break`
+               : 'পড়তে শুরু করো'}
             </text>
             <text x={CX} y={CY + 38} textAnchor="middle" fill="#ffffff25"
               fontSize="11" fontFamily="Inter,sans-serif">
@@ -442,17 +492,15 @@ function PomodoroTimer() {
         </div>
       </div>
 
-      {/* Session stats */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-4 text-center">
           <p className="text-xs text-white/40 mb-1">Round</p>
-          <p className="text-2xl font-bold text-white">{phase !== 'idle' ? round : 0}/{totalRounds}</p>
+          <p className="text-2xl font-bold text-white">{isRunning ? round : 0}/{totalRounds}</p>
         </div>
         <div className="card p-4 text-center">
           <p className="text-xs text-white/40 mb-1">Focus time</p>
-          <p className="text-2xl font-bold text-neon-green">
-            {formatDuration(Math.round(totalWorkSecs / 60))}
-          </p>
+          <p className="text-2xl font-bold text-neon-green">{formatDuration(Math.round(totalWorkSecs / 60))}</p>
         </div>
         <div className="card p-4 text-center">
           <p className="text-xs text-white/40 mb-1">Rounds set</p>
@@ -475,9 +523,7 @@ function PomodoroTimer() {
             'প্রতিটা break এ উঠে হাঁটো, চোখ বিশ্রাম দাও',
             '৪টা round শেষে ২০-৩০ মিনিটের বড় break নাও',
             'Break এ social media চেক করো না',
-          ].map((tip, i) => (
-            <p key={i} className="text-xs text-white/25">· {tip}</p>
-          ))}
+          ].map((tip, i) => <p key={i} className="text-xs text-white/25">· {tip}</p>)}
         </div>
       </div>
     </div>
