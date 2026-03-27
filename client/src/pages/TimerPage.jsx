@@ -1,15 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, Square, Clock, Timer, RotateCcw, Coffee } from 'lucide-react';
+import {
+  Play, Square, Clock, Timer, RotateCcw, Coffee,
+  BookOpen, Monitor, Plus, Trash2, CalendarDays,
+} from 'lucide-react';
 import { sessionsAPI } from '../lib/api';
-import { formatElapsed, formatDuration, getBSTDateString } from '../lib/schedule';
-import { useTimerStore, useUIStore } from '../store';
+import { formatDuration, getBSTDateString } from '../lib/schedule';
+import { useUIStore } from '../store';
 import { SubjectBadge } from '../components/ui/Shared';
 
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
 const SUBJECT_GROUPS = [
-  { label: '🔴 BUET Core',   subjects: ['Physics', 'Chemistry', 'Math']                            },
+  { label: '🔴 BUET Core',   subjects: ['Physics', 'Chemistry', 'Math'] },
   { label: '🟡 HSC / Other', subjects: ['Botany', 'Zoology', 'English', 'Bangla', 'ICT', 'Other'] },
 ];
+
+const ALL_SUBJECTS = ['Physics', 'Chemistry', 'Math', 'Botany', 'Zoology', 'English', 'Bangla', 'ICT', 'Other'];
 
 const PRESETS = [
   { label: '25 / 5',  work: 25, brk: 5,  desc: 'Classic Pomodoro' },
@@ -18,42 +26,126 @@ const PRESETS = [
   { label: '90 / 20', work: 90, brk: 20, desc: 'Ultradian rhythm'  },
 ];
 
+// Study type choices
+const STUDY_TYPES = [
+  { key: 'self',   label: '📖 নিজে পড়ছি',    icon: BookOpen  },
+  { key: 'online', label: '🖥️ Online Class', icon: Monitor   },
+];
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+/** Format milliseconds → mm:ss or h:mm:ss */
+function fmtElapsed(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// ─────────────────────────────────────────────
+// Root page
+// ─────────────────────────────────────────────
 export default function TimerPage() {
   const [activeTab, setActiveTab] = useState('free');
+
+  const tabs = [
+    { key: 'free',   label: '⏱ Free Timer'  },
+    { key: 'pomo',   label: '🍅 Pomodoro'    },
+    { key: 'custom', label: '📝 Custom Log'  },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="flex gap-1 bg-navy-700/40 rounded-xl p-1">
-        {[
-          { key: 'free', label: '⏱ Free Timer' },
-          { key: 'pomo', label: '🍅 Pomodoro'   },
-        ].map(t => (
+        {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === t.key ? 'bg-neon-green/15 text-neon-green' : 'text-white/40 hover:text-white'
+              activeTab === t.key
+                ? 'bg-neon-green/15 text-neon-green'
+                : 'text-white/40 hover:text-white'
             }`}
           >{t.label}</button>
         ))}
       </div>
-      {activeTab === 'free' && <FreeTimer />}
-      {activeTab === 'pomo' && <PomodoroTimer />}
+
+      {activeTab === 'free'   && <FreeTimer />}
+      {activeTab === 'pomo'   && <PomodoroTimer />}
+      {activeTab === 'custom' && <CustomLog />}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════
-// FREE TIMER — Date.now() based, background-safe
+// STUDY TYPE TOGGLE — shared between Free & Pomodoro
+// ══════════════════════════════════════════════════════════════════
+function StudyTypeToggle({ value, onChange, disabled }) {
+  return (
+    <div className="flex gap-2 justify-center">
+      {STUDY_TYPES.map(t => (
+        <button key={t.key}
+          disabled={disabled}
+          onClick={() => onChange(t.key)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+            value === t.key
+              ? 'bg-neon-blue/15 border-neon-blue/40 text-neon-blue'
+              : 'bg-white/[0.03] border-white/10 text-white/40 hover:text-white'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FREE TIMER
+// Fix: Date.now()-based elapsed — background-safe
+// Stores startedAt as a ref; every tick = Date.now() - startedAt
+// visibilitychange listener catches up immediately on tab focus
 // ══════════════════════════════════════════════════════════════════
 function FreeTimer() {
-  const isRunning = useTimerStore(s => s.isRunning);
-  const elapsed   = useTimerStore(s => s.elapsed);
-  const subject   = useTimerStore(s => s.subject);
-  const start     = useTimerStore(s => s.start);
-  const stop      = useTimerStore(s => s.stop);
-  const toast     = useUIStore(s => s.toast);
-  const qc        = useQueryClient();
-  const [selectedSubject, setSelectedSubject] = useState('');
-  const [notes, setNotes] = useState('');
+  const toast = useUIStore(s => s.toast);
+  const qc    = useQueryClient();
 
+  // Timer state — all local
+  const [isRunning,   setIsRunning]   = useState(false);
+  const [elapsed,     setElapsed]     = useState(0);        // ms
+  const [subject,     setSubject]     = useState('');
+  const [studyType,   setStudyType]   = useState('self');
+  const [notes,       setNotes]       = useState('');
+  const [chapter,     setChapter]     = useState('');
+
+  const startedAtRef    = useRef(null);   // Date.now() when started
+  const startTimeISORef = useRef(null);   // ISO string for saving
+  const intervalRef     = useRef(null);
+
+  // ── Background-safe tick ──────────────────────
+  useEffect(() => {
+    if (!isRunning) return;
+
+    function tick() {
+      if (startedAtRef.current) setElapsed(Date.now() - startedAtRef.current);
+    }
+
+    // Recalculate immediately when tab becomes visible
+    function onVisibility() {
+      if (document.visibilityState === 'visible') tick();
+    }
+
+    intervalRef.current = setInterval(tick, 500);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [isRunning]);
+
+  // ── Queries ───────────────────────────────────
   const { data: recentData } = useQuery({
     queryKey: ['custom-sessions'],
     queryFn:  () => sessionsAPI.getCustom(7).then(r => r.data),
@@ -66,6 +158,7 @@ function FreeTimer() {
       qc.invalidateQueries(['weekly-stats']);
       toast('Session save হয়েছে! 🎯', 'success');
       setNotes('');
+      setChapter('');
     },
     onError: () => toast('Save হয়নি', 'error'),
   });
@@ -75,52 +168,97 @@ function FreeTimer() {
     onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
   });
 
+  // ── Handlers ──────────────────────────────────
   function handleStart() {
-    if (!selectedSubject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
-    start(selectedSubject);
+    if (!subject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
+    const now = Date.now();
+    startedAtRef.current    = now;
+    startTimeISORef.current = new Date(now).toISOString();
+    setElapsed(0);
+    setIsRunning(true);
   }
 
   function handleStop() {
-    const result = stop();
-    if (result.durationMinutes < 1) { toast('Session অনেক ছোট (১ মিনিটের কম)', 'warning'); return; }
+    clearInterval(intervalRef.current);
+    setIsRunning(false);
+
+    const endTime        = new Date().toISOString();
+    const totalMs        = Date.now() - startedAtRef.current;
+    const durationMinutes = Math.round(totalMs / 60000);
+
+    if (durationMinutes < 1) {
+      toast('Session অনেক ছোট (১ মিনিটের কম)', 'warning');
+      setElapsed(0);
+      return;
+    }
+
+    const noteStr = [
+      studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
+      chapter ? `📘 ${chapter}` : '',
+      notes   ? notes           : '',
+    ].filter(Boolean).join(' · ');
+
     saveMutation.mutate({
-      subject: result.subject, startTime: result.startTime,
-      endTime: result.endTime, durationMinutes: result.durationMinutes,
-      notes: notes || null, date: getBSTDateString(),
+      subject,
+      startTime:       startTimeISORef.current,
+      endTime,
+      durationMinutes,
+      studyType,
+      chapter:         chapter || null,
+      notes:           noteStr || null,
+      date:            getBSTDateString(),
     });
+
+    setElapsed(0);
+    startedAtRef.current    = null;
+    startTimeISORef.current = null;
   }
 
+  // ── Derived ───────────────────────────────────
   const today      = getBSTDateString();
   const todaySess  = (recentData || []).filter(s => s.date === today);
-  const totalToday = todaySess.reduce((s, x) => s + x.durationMinutes, 0);
+  const totalToday = todaySess.reduce((a, s) => a + s.durationMinutes, 0);
 
   return (
     <div className="space-y-6">
+      {/* ── Main card ── */}
       <div className="card p-8 text-center">
+        {/* Clock display */}
         <div className={`text-7xl font-mono font-bold tracking-tight mb-6 transition-colors ${
           isRunning ? 'text-neon-green' : 'text-white/20'
         }`}>
-          {formatElapsed(elapsed)}
+          {fmtElapsed(elapsed)}
         </div>
 
-        {isRunning && subject && (
-          <div className="flex items-center justify-center gap-2 mb-6">
+        {/* Running indicator */}
+        {isRunning && (
+          <div className="flex items-center justify-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-            <span className="text-sm text-neon-green/80">পড়ছি: <strong>{subject}</strong></span>
+            <span className="text-sm text-neon-green/80">
+              পড়ছি: <strong>{subject}</strong>
+              {studyType === 'online' && <span className="text-neon-blue/80 ml-2">· Online Class</span>}
+            </span>
           </div>
         )}
 
+        {/* Study type toggle — always visible */}
+        <div className="mb-5">
+          <p className="text-xs text-white/30 mb-2">Session type</p>
+          <StudyTypeToggle value={studyType} onChange={setStudyType} disabled={isRunning} />
+        </div>
+
+        {/* Subject selector (only when idle) */}
         {!isRunning && (
-          <div className="mb-6 space-y-3">
-            <p className="text-xs text-white/40">কোন বিষয় পড়বে?</p>
+          <div className="mb-5 space-y-3 text-left">
+            <p className="text-xs text-white/40 text-center">কোন বিষয় পড়বে?</p>
             {SUBJECT_GROUPS.map(g => (
               <div key={g.label}>
-                <p className="text-[11px] text-white/25 mb-2 text-left">{g.label}</p>
+                <p className="text-[11px] text-white/25 mb-2">{g.label}</p>
                 <div className="flex flex-wrap gap-2">
                   {g.subjects.map(s => (
-                    <button key={s} onClick={() => setSelectedSubject(s)}
+                    <button key={s} onClick={() => setSubject(s)}
                       className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
-                        selectedSubject === s
+                        subject === s
                           ? 'border-neon-green/40 bg-neon-green/10 text-neon-green'
                           : 'border-white/10 bg-white/[0.04] text-white/50 hover:text-white'
                       }`}
@@ -132,16 +270,21 @@ function FreeTimer() {
           </div>
         )}
 
+        {/* Chapter & notes while running */}
         {isRunning && (
-          <div className="mb-6">
+          <div className="mb-5 space-y-2">
             <input className="input text-center text-sm"
-              placeholder="কী পড়ছো? (optional)"
+              placeholder="Chapter / Topic (optional)"
+              value={chapter} onChange={e => setChapter(e.target.value)} />
+            <input className="input text-center text-sm"
+              placeholder="Note (optional)"
               value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
         )}
 
+        {/* Start / Stop */}
         {!isRunning ? (
-          <button onClick={handleStart} disabled={!selectedSubject}
+          <button onClick={handleStart} disabled={!subject}
             className="inline-flex items-center gap-3 px-10 py-4 rounded-2xl bg-neon-green text-navy-900 font-bold text-lg hover:bg-neon-green/90 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed shadow-neon"
           >
             <Play size={22} fill="currentColor" /> START STUDY
@@ -155,6 +298,7 @@ function FreeTimer() {
         )}
       </div>
 
+      {/* ── Today's total ── */}
       {totalToday > 0 && (
         <div className="card p-4 flex items-center gap-3">
           <Clock size={16} className="text-neon-blue" />
@@ -178,6 +322,7 @@ function FreeTimer() {
         </div>
       )}
 
+      {/* ── Recent sessions ── */}
       <div>
         <h2 className="section-heading">সাম্প্রতিক extra sessions (৭ দিন)</h2>
         {!recentData || recentData.length === 0 ? (
@@ -188,11 +333,22 @@ function FreeTimer() {
               <div key={s.id} className="card p-3 flex items-center gap-3">
                 <SubjectBadge subject={s.subject} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/80">{formatDuration(s.durationMinutes)}</p>
-                  <p className="text-xs text-white/30">{s.date}{s.notes ? ` · ${s.notes}` : ''}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-white/80">{formatDuration(s.durationMinutes)}</p>
+                    {s.studyType === 'online' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-blue/10 text-neon-blue border border-neon-blue/20">
+                        Online
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/30 truncate">
+                    {s.date}{s.notes ? ` · ${s.notes}` : ''}
+                  </p>
                 </div>
                 <button onClick={() => deleteMutation.mutate(s.id)}
-                  className="text-white/20 hover:text-red-400 text-xs transition-colors">✕</button>
+                  className="text-white/20 hover:text-red-400 transition-colors p-1">
+                  <Trash2 size={13} />
+                </button>
               </div>
             ))}
           </div>
@@ -204,9 +360,9 @@ function FreeTimer() {
 
 // ══════════════════════════════════════════════════════════════════
 // POMODORO — deadline-based countdown, background-safe
-// phaseEndAt = exact timestamp যখন phase শেষ হবে
-// প্রতি tick এ: secondsLeft = Math.ceil((phaseEndAt - Date.now()) / 1000)
-// তাই background এ গেলেও ফিরে এলে সঠিক সময় দেখাবে
+// phaseEndAt = exact ms timestamp when phase ends
+// tick: secondsLeft = ceil((phaseEndAt - Date.now()) / 1000)
+// visibilitychange syncs immediately on tab focus
 // ══════════════════════════════════════════════════════════════════
 function PomodoroTimer() {
   const toast = useUIStore(s => s.toast);
@@ -214,28 +370,31 @@ function PomodoroTimer() {
 
   const [preset,        setPreset]        = useState(PRESETS[0]);
   const [phase,         setPhase]         = useState('idle');
-  const [phaseEndAt,    setPhaseEndAt]    = useState(null);  // ms timestamp
+  const [phaseEndAt,    setPhaseEndAt]    = useState(null);
   const [secondsLeft,   setSecondsLeft]   = useState(PRESETS[0].work * 60);
   const [round,         setRound]         = useState(1);
   const [totalRounds,   setTotalRounds]   = useState(4);
   const [subject,       setSubject]       = useState('');
+  const [studyType,     setStudyType]     = useState('self');
   const [sessionStart,  setSessionStart]  = useState(null);
   const [totalWorkSecs, setTotalWorkSecs] = useState(0);
 
-  const intervalRef    = useRef(null);
-  const phaseRef       = useRef(phase);
-  const roundRef       = useRef(round);
-  const presetRef      = useRef(preset);
-  const subjectRef     = useRef(subject);
-  const sessionStartRef = useRef(sessionStart);
-  const totalRoundsRef = useRef(totalRounds);
+  const intervalRef      = useRef(null);
+  const phaseRef         = useRef(phase);
+  const roundRef         = useRef(round);
+  const presetRef        = useRef(preset);
+  const subjectRef       = useRef(subject);
+  const studyTypeRef     = useRef(studyType);
+  const sessionStartRef  = useRef(sessionStart);
+  const totalRoundsRef   = useRef(totalRounds);
 
-  phaseRef.current       = phase;
-  roundRef.current       = round;
-  presetRef.current      = preset;
-  subjectRef.current     = subject;
+  phaseRef.current        = phase;
+  roundRef.current        = round;
+  presetRef.current       = preset;
+  subjectRef.current      = subject;
+  studyTypeRef.current    = studyType;
   sessionStartRef.current = sessionStart;
-  totalRoundsRef.current = totalRounds;
+  totalRoundsRef.current  = totalRounds;
 
   const saveMutation = useMutation({
     mutationFn: (data) => sessionsAPI.saveCustom(data),
@@ -254,91 +413,89 @@ function PomodoroTimer() {
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
+      osc.start(); osc.stop(ctx.currentTime + 0.8);
     } catch {}
   }
 
-  // Phase end handler — called when countdown hits 0
   const handlePhaseEnd = useCallback(() => {
     clearInterval(intervalRef.current);
-    const currentPhase  = phaseRef.current;
-    const currentRound  = roundRef.current;
-    const currentPreset = presetRef.current;
-    const currentTotal  = totalRoundsRef.current;
+    const curPhase  = phaseRef.current;
+    const curRound  = roundRef.current;
+    const curPreset = presetRef.current;
+    const curTotal  = totalRoundsRef.current;
 
-    if (currentPhase === 'work') {
-      const workSecs = currentPreset.work * 60;
+    if (curPhase === 'work') {
+      const workSecs = curPreset.work * 60;
       setTotalWorkSecs(t => t + workSecs);
 
       if (subjectRef.current && sessionStartRef.current) {
+        const noteStr = [
+          studyTypeRef.current === 'online' ? '🖥️ Online Class' : '📖 Self Study',
+          `🍅 Pomodoro #${curRound} (${curPreset.work} min)`,
+        ].join(' · ');
+
         saveMutation.mutate({
           subject:         subjectRef.current,
           date:            getBSTDateString(),
           startTime:       sessionStartRef.current,
           endTime:         new Date().toISOString(),
-          durationMinutes: currentPreset.work,
-          notes:           `🍅 Pomodoro #${currentRound} (${currentPreset.work} min)`,
+          durationMinutes: curPreset.work,
+          studyType:       studyTypeRef.current,
+          notes:           noteStr,
         });
       }
 
       playBeep(440);
 
-      if (currentRound >= currentTotal) {
+      if (curRound >= curTotal) {
         toast('🎉 সব rounds শেষ! অসাধারণ!', 'success');
         setPhase('idle');
         setRound(1);
         setPhaseEndAt(null);
-        setSecondsLeft(currentPreset.work * 60);
+        setSecondsLeft(curPreset.work * 60);
       } else {
-        toast(`🍅 Round ${currentRound} শেষ! ${currentPreset.brk} মিনিট break।`, 'success');
-        const endAt = Date.now() + currentPreset.brk * 60 * 1000;
+        toast(`🍅 Round ${curRound} শেষ! ${curPreset.brk} মিনিট break।`, 'success');
+        const endAt = Date.now() + curPreset.brk * 60 * 1000;
         setPhase('break');
         setPhaseEndAt(endAt);
-        setSecondsLeft(currentPreset.brk * 60);
+        setSecondsLeft(curPreset.brk * 60);
       }
-    } else if (currentPhase === 'break') {
+    } else if (curPhase === 'break') {
       playBeep(660);
-      const nextRound = currentRound + 1;
+      const nextRound = curRound + 1;
       toast(`☕ Break শেষ! Round ${nextRound} শুরু করো।`, 'info');
       setRound(nextRound);
       const start = new Date().toISOString();
       setSessionStart(start);
       sessionStartRef.current = start;
-      const endAt = Date.now() + currentPreset.work * 60 * 1000;
+      const endAt = Date.now() + curPreset.work * 60 * 1000;
       setPhase('work');
       setPhaseEndAt(endAt);
-      setSecondsLeft(currentPreset.work * 60);
+      setSecondsLeft(curPreset.work * 60);
     }
   }, []);
 
-  // Tick — recalculate from phaseEndAt every second
+  // Tick — recalculate from phaseEndAt
   useEffect(() => {
     if (phase === 'idle' || !phaseEndAt) return;
-
     clearInterval(intervalRef.current);
+
     intervalRef.current = setInterval(() => {
       const remaining = Math.ceil((phaseEndAt - Date.now()) / 1000);
-      if (remaining <= 0) {
-        setSecondsLeft(0);
-        handlePhaseEnd();
-      } else {
-        setSecondsLeft(remaining);
-      }
-    }, 500); // 500ms interval — catches up faster after background
+      if (remaining <= 0) { setSecondsLeft(0); handlePhaseEnd(); }
+      else setSecondsLeft(remaining);
+    }, 500);
 
     return () => clearInterval(intervalRef.current);
   }, [phase, phaseEndAt, handlePhaseEnd]);
 
-  // Page visibility — recalculate immediately when tab becomes visible
+  // Visibility catch-up
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState === 'visible' && phaseEndAt && phase !== 'idle') {
         const remaining = Math.ceil((phaseEndAt - Date.now()) / 1000);
-        if (remaining <= 0) {
-          handlePhaseEnd();
-        } else {
-          setSecondsLeft(remaining);
-        }
+        if (remaining <= 0) handlePhaseEnd();
+        else setSecondsLeft(remaining);
       }
     }
     document.addEventListener('visibilitychange', onVisible);
@@ -381,19 +538,17 @@ function PomodoroTimer() {
     setTimeout(() => setSecondsLeft(p.work * 60), 20);
   }
 
-  const isRunning = phase !== 'idle';
-  const totalSecs = phase === 'break' ? preset.brk * 60 : preset.work * 60;
-  const pct       = totalSecs > 0 ? Math.round(((totalSecs - secondsLeft) / totalSecs) * 100) : 0;
-  const ringColor = phase === 'work' ? '#ef4444' : phase === 'break' ? '#00ff87' : '#ffffff20';
-  const mins      = Math.floor(secondsLeft / 60);
-  const secs      = secondsLeft % 60;
-
+  const isRunning  = phase !== 'idle';
+  const totalSecs  = phase === 'break' ? preset.brk * 60 : preset.work * 60;
+  const pct        = totalSecs > 0 ? Math.round(((totalSecs - secondsLeft) / totalSecs) * 100) : 0;
+  const ringColor  = phase === 'work' ? '#ef4444' : phase === 'break' ? '#00ff87' : '#ffffff20';
+  const mins       = Math.floor(secondsLeft / 60);
+  const secs       = secondsLeft % 60;
   const R = 90, CX = 110, CY = 110, circ = 2 * Math.PI * R;
   const dash = (pct / 100) * circ;
 
   return (
     <div className="space-y-5">
-
       {/* Presets */}
       <div className="grid grid-cols-4 gap-2">
         {PRESETS.map(p => (
@@ -412,9 +567,8 @@ function PomodoroTimer() {
 
       {/* Ring card */}
       <div className="card p-6 flex flex-col items-center">
-
         {/* Phase badge */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold mb-5 ${
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold mb-4 ${
           phase === 'work'  ? 'bg-red-500/10 border-red-500/30 text-red-400'
           : phase === 'break' ? 'bg-neon-green/10 border-neon-green/30 text-neon-green'
           : 'bg-white/[0.03] border-white/10 text-white/40'
@@ -424,8 +578,14 @@ function PomodoroTimer() {
           {phase === 'idle'  && <><Timer size={13} />Ready</>}
         </div>
 
+        {/* Study type toggle */}
+        <div className="mb-4 w-full">
+          <p className="text-xs text-white/30 text-center mb-2">Session type</p>
+          <StudyTypeToggle value={studyType} onChange={v => { setStudyType(v); studyTypeRef.current = v; }} disabled={isRunning} />
+        </div>
+
         {/* SVG ring */}
-        <div className="mb-5">
+        <div className="mb-4">
           <svg width="220" height="220" viewBox="0 0 220 220">
             <circle cx={CX} cy={CY} r={R} fill="none" stroke="#ffffff08" strokeWidth="12" />
             <circle cx={CX} cy={CY} r={R} fill="none"
@@ -453,10 +613,10 @@ function PomodoroTimer() {
 
         {/* Subject picker */}
         {!isRunning && (
-          <div className="w-full mb-5">
+          <div className="w-full mb-4">
             <p className="text-xs text-white/40 text-center mb-3">Subject সিলেক্ট করো</p>
             <div className="flex flex-wrap gap-2 justify-center">
-              {['Physics','Chemistry','Math','Botany','Zoology','English','Bangla','ICT'].map(s => (
+              {ALL_SUBJECTS.map(s => (
                 <button key={s} onClick={() => setSubject(s)}
                   className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
                     subject === s
@@ -525,6 +685,237 @@ function PomodoroTimer() {
             'Break এ social media চেক করো না',
           ].map((tip, i) => <p key={i} className="text-xs text-white/25">· {tip}</p>)}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CUSTOM LOG — manual session entry without timer
+// Timer ছাড়াই manually কতক্ষণ পড়লাম, কী পড়লাম সেটা log করো
+// ══════════════════════════════════════════════════════════════════
+function CustomLog() {
+  const toast = useUIStore(s => s.toast);
+  const qc    = useQueryClient();
+
+  const [subject,   setSubject]   = useState('');
+  const [chapter,   setChapter]   = useState('');
+  const [studyType, setStudyType] = useState('self');
+  const [hours,     setHours]     = useState(0);
+  const [minutes,   setMinutes]   = useState(30);
+  const [notes,     setNotes]     = useState('');
+  const [date,      setDate]      = useState(getBSTDateString());
+
+  const { data: recentData } = useQuery({
+    queryKey: ['custom-sessions'],
+    queryFn:  () => sessionsAPI.getCustom(14).then(r => r.data),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => sessionsAPI.saveCustom(data),
+    onSuccess: () => {
+      qc.invalidateQueries(['custom-sessions']);
+      qc.invalidateQueries(['weekly-stats']);
+      toast('Log save হয়েছে! ✅', 'success');
+      setChapter('');
+      setNotes('');
+      setHours(0);
+      setMinutes(30);
+    },
+    onError: () => toast('Save হয়নি', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => sessionsAPI.deleteCustom(id),
+    onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
+  });
+
+  function handleSave() {
+    if (!subject)              { toast('Subject সিলেক্ট করো',         'warning'); return; }
+    const dur = hours * 60 + minutes;
+    if (dur < 1)               { toast('Duration কমপক্ষে ১ মিনিট দাও', 'warning'); return; }
+
+    const noteStr = [
+      studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
+      chapter ? `📘 ${chapter}` : '',
+      notes   ? notes           : '',
+    ].filter(Boolean).join(' · ');
+
+    saveMutation.mutate({
+      subject,
+      date,
+      durationMinutes: dur,
+      studyType,
+      chapter: chapter || null,
+      notes:   noteStr || null,
+      startTime: null,
+      endTime:   null,
+    });
+  }
+
+  const today = getBSTDateString();
+
+  return (
+    <div className="space-y-5">
+      {/* ── Form card ── */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Plus size={16} className="text-neon-green" />
+          <h2 className="text-sm font-semibold text-white">নতুন study log যোগ করো</h2>
+          <span className="text-xs text-white/30">(timer ছাড়া)</span>
+        </div>
+
+        {/* Study type */}
+        <div>
+          <p className="text-xs text-white/40 mb-2">কীভাবে পড়লে?</p>
+          <StudyTypeToggle value={studyType} onChange={setStudyType} />
+        </div>
+
+        {/* Subject */}
+        <div>
+          <p className="text-xs text-white/40 mb-2">Subject</p>
+          <div className="flex flex-wrap gap-2">
+            {ALL_SUBJECTS.map(s => (
+              <button key={s} onClick={() => setSubject(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                  subject === s
+                    ? 'border-neon-green/40 bg-neon-green/10 text-neon-green'
+                    : 'border-white/10 bg-white/[0.04] text-white/40 hover:text-white'
+                }`}
+              >{s}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chapter */}
+        <div>
+          <p className="text-xs text-white/40 mb-2">Chapter / Topic</p>
+          <input className="input text-sm w-full"
+            placeholder="যেমন: Newton's Laws, Trigonometry, Cell Division…"
+            value={chapter} onChange={e => setChapter(e.target.value)} />
+        </div>
+
+        {/* Duration */}
+        <div>
+          <p className="text-xs text-white/40 mb-2">কতক্ষণ পড়লে?</p>
+          <div className="flex gap-3 items-center">
+            {/* Hours */}
+            <div className="flex-1">
+              <p className="text-[10px] text-white/25 mb-1 text-center">ঘণ্টা</p>
+              <div className="flex items-center gap-2 bg-white/[0.04] rounded-xl p-2 justify-between border border-white/[0.08]">
+                <button onClick={() => setHours(h => Math.max(0, h - 1))}
+                  className="w-7 h-7 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/10">−</button>
+                <span className="text-xl font-bold text-white w-8 text-center">{hours}</span>
+                <button onClick={() => setHours(h => Math.min(12, h + 1))}
+                  className="w-7 h-7 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/10">+</button>
+              </div>
+            </div>
+
+            <span className="text-white/30 text-lg font-bold mt-4">:</span>
+
+            {/* Minutes */}
+            <div className="flex-1">
+              <p className="text-[10px] text-white/25 mb-1 text-center">মিনিট</p>
+              <div className="flex items-center gap-2 bg-white/[0.04] rounded-xl p-2 justify-between border border-white/[0.08]">
+                <button onClick={() => setMinutes(m => Math.max(0, m - 5))}
+                  className="w-7 h-7 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/10">−</button>
+                <span className="text-xl font-bold text-white w-8 text-center">{minutes}</span>
+                <button onClick={() => setMinutes(m => Math.min(59, m + 5))}
+                  className="w-7 h-7 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/10">+</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick duration presets */}
+          <div className="flex gap-2 mt-2 flex-wrap">
+            {[30, 45, 60, 90, 120].map(min => (
+              <button key={min} onClick={() => { setHours(Math.floor(min/60)); setMinutes(min % 60); }}
+                className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/40 hover:text-white hover:border-white/20 transition-all">
+                {min < 60 ? `${min}m` : `${min/60}h`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Date */}
+        <div>
+          <p className="text-xs text-white/40 mb-2">
+            <CalendarDays size={11} className="inline mr-1" />তারিখ
+          </p>
+          <input type="date" className="input text-sm w-full"
+            value={date} onChange={e => setDate(e.target.value)}
+            max={today} />
+        </div>
+
+        {/* Notes */}
+        <div>
+          <p className="text-xs text-white/40 mb-2">Note (optional)</p>
+          <input className="input text-sm w-full"
+            placeholder="কোনো বিশেষ কথা…"
+            value={notes} onChange={e => setNotes(e.target.value)} />
+        </div>
+
+        {/* Summary preview */}
+        {subject && (hours * 60 + minutes) >= 1 && (
+          <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+            <p className="text-xs text-white/40 mb-1">Preview</p>
+            <p className="text-sm text-white/70">
+              <span className="text-neon-green font-medium">{subject}</span>
+              {chapter && <span className="text-white/40"> · {chapter}</span>}
+              {' — '}
+              <span className="text-neon-blue">{formatDuration(hours * 60 + minutes)}</span>
+              <span className="text-white/30"> · {date}</span>
+              {' · '}
+              <span className="text-white/50">{studyType === 'online' ? '🖥️ Online' : '📖 Self'}</span>
+            </p>
+          </div>
+        )}
+
+        {/* Save button */}
+        <button onClick={handleSave} disabled={saveMutation.isPending}
+          className="w-full py-3 rounded-xl bg-neon-green/15 border border-neon-green/30 text-neon-green font-bold text-sm hover:bg-neon-green/25 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2"
+        >
+          <Plus size={16} />
+          {saveMutation.isPending ? 'Saving…' : 'Log Save করো'}
+        </button>
+      </div>
+
+      {/* ── Recent logs ── */}
+      <div>
+        <h2 className="section-heading">সাম্প্রতিক logs (১৪ দিন)</h2>
+        {!recentData || recentData.length === 0 ? (
+          <div className="card p-6 text-center text-sm text-white/30">এখনো কোনো log নেই</div>
+        ) : (
+          <div className="space-y-2">
+            {recentData.map(s => (
+              <div key={s.id} className="card p-3 flex items-center gap-3">
+                <SubjectBadge subject={s.subject} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-white/80">{formatDuration(s.durationMinutes)}</p>
+                    {s.studyType === 'online' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-blue/10 text-neon-blue border border-neon-blue/20">
+                        Online
+                      </span>
+                    )}
+                    {s.chapter && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.05] text-white/40">
+                        {s.chapter}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/30 truncate">
+                    {s.date}{s.notes ? ` · ${s.notes}` : ''}
+                  </p>
+                </div>
+                <button onClick={() => deleteMutation.mutate(s.id)}
+                  className="text-white/20 hover:text-red-400 transition-colors p-1">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
