@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Plus, CheckCircle2, Trash2, Filter, ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 import { mistakesAPI } from '../lib/api';
 import { getBSTDateString } from '../lib/schedule';
 import { LoadingCard } from '../components/ui/Shared';
+import MathKeyboard from '../components/ui/MathKeyboard';   // ← new import
 import { useUIStore } from '../store';
 
 const MISTAKE_TYPES = [
@@ -63,14 +64,14 @@ export default function MistakePage() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 1 — List
+// TAB 1 — List  (unchanged)
 // ══════════════════════════════════════════════════════════════════
 function MistakeList() {
   const toast = useUIStore(s => s.toast);
   const qc    = useQueryClient();
   const [filterSubject,  setFilterSubject]  = useState('');
   const [filterType,     setFilterType]     = useState('');
-  const [filterResolved, setFilterResolved] = useState('false'); // 'false' | 'true' | 'all'
+  const [filterResolved, setFilterResolved] = useState('false');
   const [expanded, setExpanded] = useState({});
 
   const { data: mistakes, isLoading } = useQuery({
@@ -98,29 +99,22 @@ function MistakeList() {
 
   return (
     <div className="space-y-4">
-
-      {/* Filters */}
       <div className="card p-4">
         <div className="flex items-center gap-2 mb-3">
           <Filter size={13} className="text-white/40" />
           <span className="text-xs text-white/40">Filter</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {/* Subject filter */}
           <select className="select text-xs py-1.5 w-auto"
             value={filterSubject} onChange={e => setFilterSubject(e.target.value)}>
             <option value="">সব Subject</option>
             {SUBJECTS.map(s => <option key={s}>{s}</option>)}
           </select>
-
-          {/* Type filter */}
           <select className="select text-xs py-1.5 w-auto"
             value={filterType} onChange={e => setFilterType(e.target.value)}>
             <option value="">সব Type</option>
             {MISTAKE_TYPES.map(t => <option key={t.key}>{t.key}</option>)}
           </select>
-
-          {/* Resolved filter */}
           <div className="flex gap-1">
             {[['false', 'Unresolved'], ['true', 'Resolved'], ['all', 'সব']].map(([val, label]) => (
               <button key={val} onClick={() => setFilterResolved(val)}
@@ -139,7 +133,6 @@ function MistakeList() {
         </div>
       </div>
 
-      {/* List */}
       {isLoading ? <LoadingCard rows={4} /> : filtered.length === 0 ? (
         <div className="card p-10 text-center">
           <CheckCircle2 size={28} className="text-neon-green/30 mx-auto mb-2" />
@@ -153,11 +146,8 @@ function MistakeList() {
             const typeInfo = MISTAKE_TYPES.find(t => t.key === m.mistakeType) || MISTAKE_TYPES[0];
             const isOpen   = expanded[m.id];
             return (
-              <div key={m.id} className={`card overflow-hidden transition-all ${
-                m.resolved ? 'opacity-50' : ''
-              }`}>
+              <div key={m.id} className={`card overflow-hidden transition-all ${m.resolved ? 'opacity-50' : ''}`}>
                 <div className="flex items-center gap-3 p-3">
-                  {/* Resolve toggle */}
                   <button
                     onClick={() => resolveMutation.mutate({ id: m.id, resolved: !m.resolved })}
                     className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
@@ -168,12 +158,9 @@ function MistakeList() {
                   >
                     <CheckCircle2 size={13} />
                   </button>
-
                   <div className="flex-1 min-w-0" onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className={`text-xs font-semibold ${SUBJECT_COLORS[m.subject] || 'text-white/60'}`}>
-                        {m.subject}
-                      </span>
+                      <span className={`text-xs font-semibold ${SUBJECT_COLORS[m.subject] || 'text-white/60'}`}>{m.subject}</span>
                       <span className="text-white/20">·</span>
                       <span className="text-xs text-white/50 truncate">{m.topic}</span>
                     </div>
@@ -185,19 +172,15 @@ function MistakeList() {
                       <span className="text-[11px] text-white/20 ml-auto">{m.date}</span>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}
-                      className="text-white/25 hover:text-white/60 p-1">
+                    <button onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))} className="text-white/25 hover:text-white/60 p-1">
                       {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </button>
-                    <button onClick={() => deleteMutation.mutate(m.id)}
-                      className="text-white/20 hover:text-red-400 p-1 transition-colors">
+                    <button onClick={() => deleteMutation.mutate(m.id)} className="text-white/20 hover:text-red-400 p-1 transition-colors">
                       <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
-
                 {isOpen && (
                   <div className="px-4 pb-4 border-t border-white/[0.05] space-y-3 pt-3 animate-fade-in">
                     <div>
@@ -224,11 +207,12 @@ function MistakeList() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 2 — Add mistake
+// TAB 2 — Add mistake  ← Math keyboard integrated here
 // ══════════════════════════════════════════════════════════════════
 function AddMistake({ onDone }) {
   const toast = useUIStore(s => s.toast);
   const qc    = useQueryClient();
+
   const [form, setForm] = useState({
     subject:     '',
     topic:       '',
@@ -237,6 +221,55 @@ function AddMistake({ onDone }) {
     correction:  '',
     source:      '',
   });
+
+  // ── Math keyboard cursor tracking ──────────────────────────────
+  // Which textarea is active: 'description' | 'correction' | null
+  const activeFieldRef = useRef(null);
+  // Saved cursor position { start, end }
+  const cursorRef      = useRef({ start: 0, end: 0 });
+  // Refs to the two textareas
+  const descRef        = useRef(null);
+  const corrRef        = useRef(null);
+
+  /** Save which field is focused + cursor position */
+  const handleTextareaFocus = (field) => {
+    activeFieldRef.current = field;
+  };
+
+  /** Update cursor position on every key/click/select */
+  const handleCursorUpdate = (field, e) => {
+    activeFieldRef.current = field;
+    cursorRef.current = {
+      start: e.target.selectionStart ?? 0,
+      end:   e.target.selectionEnd   ?? 0,
+    };
+  };
+
+  /** Insert symbol at last-known cursor position */
+  const handleMathInsert = useCallback((text) => {
+    const field = activeFieldRef.current;
+    if (!field) return;
+
+    const { start, end } = cursorRef.current;
+    const current  = form[field] || '';
+    const newValue = current.slice(0, start) + text + current.slice(end);
+    const newCursor = start + text.length;
+
+    // Update form state
+    setForm(f => ({ ...f, [field]: newValue }));
+
+    // Restore cursor after React re-render
+    const ref = field === 'description' ? descRef : corrRef;
+    requestAnimationFrame(() => {
+      if (ref.current) {
+        ref.current.focus();
+        ref.current.setSelectionRange(newCursor, newCursor);
+      }
+      // Save new cursor position for the next insert
+      cursorRef.current = { start: newCursor, end: newCursor };
+    });
+  }, [form]);
+  // ───────────────────────────────────────────────────────────────
 
   const mutation = useMutation({
     mutationFn: (data) => mistakesAPI.create(data),
@@ -300,21 +333,45 @@ function AddMistake({ onDone }) {
         </div>
       </div>
 
-      {/* Description */}
+      {/* ── Description textarea ── */}
       <div>
         <label className="text-xs text-white/40 mb-1.5 block">কী ভুল হয়েছিল? *</label>
-        <textarea className="input resize-none text-sm" rows={3}
+        <textarea
+          ref={descRef}
+          className="input resize-none text-sm"
+          rows={3}
           placeholder="ভুলটা বিস্তারিত লেখো। যেমন: Tension এর formula এ mg বাদ দিয়েছিলাম..."
-          value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+          value={form.description}
+          onChange={e  => { setForm(f => ({ ...f, description: e.target.value })); handleCursorUpdate('description', e); }}
+          onFocus={()  => handleTextareaFocus('description')}
+          onClick={e   => handleCursorUpdate('description', e)}
+          onKeyUp={e   => handleCursorUpdate('description', e)}
+          onSelect={e  => handleCursorUpdate('description', e)}
+        />
       </div>
 
-      {/* Correction */}
+      {/* ── Correction textarea ── */}
       <div>
         <label className="text-xs text-neon-green/50 mb-1.5 block">✓ সঠিক উত্তর / পদ্ধতি (optional কিন্তু important)</label>
-        <textarea className="input resize-none text-sm border-neon-green/15 focus:border-neon-green/30" rows={3}
+        <textarea
+          ref={corrRef}
+          className="input resize-none text-sm border-neon-green/15 focus:border-neon-green/30"
+          rows={3}
           placeholder="সঠিক approach কী ছিল? এটা লিখলে পরে review করতে সহজ হবে..."
-          value={form.correction} onChange={e => setForm(f => ({ ...f, correction: e.target.value }))} />
+          value={form.correction}
+          onChange={e  => { setForm(f => ({ ...f, correction: e.target.value })); handleCursorUpdate('correction', e); }}
+          onFocus={()  => handleTextareaFocus('correction')}
+          onClick={e   => handleCursorUpdate('correction', e)}
+          onKeyUp={e   => handleCursorUpdate('correction', e)}
+          onSelect={e  => handleCursorUpdate('correction', e)}
+        />
       </div>
+
+      {/* ── Math Keyboard ── */}
+      <MathKeyboard
+        onInsert={handleMathInsert}
+        activeField={activeFieldRef.current}
+      />
 
       {/* Source */}
       <div>
@@ -345,7 +402,7 @@ function AddMistake({ onDone }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 3 — Stats
+// TAB 3 — Stats  (unchanged)
 // ══════════════════════════════════════════════════════════════════
 function MistakeStats() {
   const { data: stats, isLoading } = useQuery({
@@ -367,8 +424,6 @@ function MistakeStats() {
 
   return (
     <div className="space-y-4">
-
-      {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-4 text-center border-red-500/15">
           <p className="text-xs text-white/40 mb-1">মোট</p>
@@ -387,7 +442,6 @@ function MistakeStats() {
         </div>
       </div>
 
-      {/* By subject */}
       {Object.keys(stats.bySubject || {}).length > 0 && (
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -416,7 +470,6 @@ function MistakeStats() {
         </div>
       )}
 
-      {/* By type */}
       {Object.keys(stats.byType || {}).length > 0 && (
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Mistake Type Distribution</h3>
