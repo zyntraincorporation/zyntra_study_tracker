@@ -45,7 +45,13 @@ async function buildAIContext(days = 7) {
         didInstead: l.didInstead || 'Not specified',
         minutesStudied: l.actualMinutes,
       })),
-      extraStudy: extras.map(s => ({ subject: s.subject, minutes: s.durationMinutes })),
+      extraStudy: extras.map(s => ({
+        subject: s.subject,
+        minutes: s.durationMinutes,
+        studyType: s.studyType || null,
+        chapter: s.chapter || null,
+        notes: s.notes || null,
+      })),
       morning: checkin ? {
         wokeUpAt6: checkin.wokeUpAt6,
         studiedBefore: checkin.studiedBeforeCollege,

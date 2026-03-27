@@ -25,31 +25,33 @@ export const useAuthStore = create(
 export const useTimerStore = create((set, get) => ({
   isRunning:  false,
   subject:    null,
+  studyType:  null,
+  chapter:    null,
   startTime:  null,
   elapsed:    0,       // seconds
   intervalId: null,
 
-  start: (subject) => {
+  start: (subject, studyType = 'self', chapter = null) => {
     const startTime = new Date().toISOString();
     const intervalId = setInterval(() => {
       set((s) => ({ elapsed: s.elapsed + 1 }));
     }, 1000);
-    set({ isRunning: true, subject, startTime, elapsed: 0, intervalId });
+    set({ isRunning: true, subject, studyType, chapter, startTime, elapsed: 0, intervalId });
   },
 
   stop: () => {
-    const { intervalId, subject, startTime, elapsed } = get();
+    const { intervalId, subject, studyType, chapter, startTime, elapsed } = get();
     if (intervalId) clearInterval(intervalId);
     const endTime = new Date().toISOString();
     const durationMinutes = Math.round(elapsed / 60);
-    set({ isRunning: false, subject: null, startTime: null, elapsed: 0, intervalId: null });
-    return { subject, startTime, endTime, durationMinutes };
+    set({ isRunning: false, subject: null, studyType: null, chapter: null, startTime: null, elapsed: 0, intervalId: null });
+    return { subject, studyType, chapter, startTime, endTime, durationMinutes };
   },
 
   reset: () => {
     const { intervalId } = get();
     if (intervalId) clearInterval(intervalId);
-    set({ isRunning: false, subject: null, startTime: null, elapsed: 0, intervalId: null });
+    set({ isRunning: false, subject: null, studyType: null, chapter: null, startTime: null, elapsed: 0, intervalId: null });
   },
 }));
 

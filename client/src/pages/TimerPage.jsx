@@ -26,6 +26,21 @@ const STUDY_TYPES = [
   { key: 'online', label: '🖥️ Online Class', icon: Monitor   },
 ];
 
+function StudyTypeBadge({ studyType }) {
+  if (!studyType) return null;
+  const isOnline = studyType === 'online';
+
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+      isOnline
+        ? 'bg-neon-blue/10 text-neon-blue border-neon-blue/20'
+        : 'bg-neon-green/10 text-neon-green border-neon-green/20'
+    }`}>
+      {isOnline ? 'Online' : 'Self Study'}
+    </span>
+  );
+}
+
 export default function TimerPage() {
   const [activeTab, setActiveTab] = useState('free');
   return (
@@ -80,11 +95,15 @@ function FreeTimer() {
   const isRunning = useTimerStore(s => s.isRunning);
   const elapsed   = useTimerStore(s => s.elapsed);
   const subject   = useTimerStore(s => s.subject);
+  const studyType = useTimerStore(s => s.studyType);
+  const chapter   = useTimerStore(s => s.chapter);
   const start     = useTimerStore(s => s.start);
   const stop      = useTimerStore(s => s.stop);
   const toast     = useUIStore(s => s.toast);
   const qc        = useQueryClient();
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedStudyType, setSelectedStudyType] = useState('self');
+  const [selectedChapter, setSelectedChapter] = useState('');
   const [notes, setNotes] = useState('');
 
   const { data: recentData } = useQuery({
@@ -98,6 +117,7 @@ function FreeTimer() {
       qc.invalidateQueries(['custom-sessions']);
       qc.invalidateQueries(['weekly-stats']);
       toast('Session save হয়েছে! 🎯', 'success');
+      setSelectedChapter('');
       setNotes('');
     },
     onError: () => toast('Save হয়নি', 'error'),
@@ -110,7 +130,7 @@ function FreeTimer() {
 
   function handleStart() {
     if (!selectedSubject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
-    start(selectedSubject);
+    start(selectedSubject, selectedStudyType, selectedChapter.trim() || null);
   }
 
   function handleStop() {
@@ -120,6 +140,8 @@ function FreeTimer() {
       subject: result.subject, startTime: result.startTime,
       endTime: result.endTime, durationMinutes: result.durationMinutes,
       notes: notes || null, date: getBSTDateString(),
+      studyType: result.studyType || 'self',
+      chapter: result.chapter || null,
     });
   }
 
@@ -137,14 +159,24 @@ function FreeTimer() {
         </div>
 
         {isRunning && subject && (
-          <div className="flex items-center justify-center gap-2 mb-6">
+          <div className="flex items-center justify-center gap-2 mb-6 flex-wrap">
             <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
             <span className="text-sm text-neon-green/80">পড়ছি: <strong>{subject}</strong></span>
+            <StudyTypeBadge studyType={studyType} />
+            {chapter && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.05] text-white/50">
+                {chapter}
+              </span>
+            )}
           </div>
         )}
 
         {!isRunning && (
           <div className="mb-6 space-y-3">
+            <div className="space-y-2">
+              <p className="text-xs text-white/40">Study mode</p>
+              <StudyTypeToggle value={selectedStudyType} onChange={setSelectedStudyType} />
+            </div>
             <p className="text-xs text-white/40">কোন বিষয় পড়বে?</p>
             {SUBJECT_GROUPS.map(g => (
               <div key={g.label}>
@@ -162,6 +194,15 @@ function FreeTimer() {
                 </div>
               </div>
             ))}
+            <div className="space-y-2">
+              <p className="text-xs text-white/40">Chapter / Topic</p>
+              <input
+                className="input text-sm"
+                placeholder="Optional chapter or topic"
+                value={selectedChapter}
+                onChange={(e) => setSelectedChapter(e.target.value)}
+              />
+            </div>
           </div>
         )}
 
@@ -221,7 +262,15 @@ function FreeTimer() {
               <div key={s.id} className="card p-3 flex items-center gap-3">
                 <SubjectBadge subject={s.subject} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/80">{formatDuration(s.durationMinutes)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-white/80">{formatDuration(s.durationMinutes)}</p>
+                    <StudyTypeBadge studyType={s.studyType} />
+                    {s.chapter && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.05] text-white/40">
+                        {s.chapter}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-white/30">{s.date}{s.notes ? ` · ${s.notes}` : ''}</p>
                 </div>
                 <button onClick={() => deleteMutation.mutate(s.id)}
@@ -252,6 +301,8 @@ function PomodoroTimer() {
   const [round,         setRound]         = useState(1);
   const [totalRounds,   setTotalRounds]   = useState(4);
   const [subject,       setSubject]       = useState('');
+  const [studyType,     setStudyType]     = useState('self');
+  const [chapter,       setChapter]       = useState('');
   const [sessionStart,  setSessionStart]  = useState(null);
   const [totalWorkSecs, setTotalWorkSecs] = useState(0);
 
@@ -260,6 +311,8 @@ function PomodoroTimer() {
   const roundRef       = useRef(round);
   const presetRef      = useRef(preset);
   const subjectRef     = useRef(subject);
+  const studyTypeRef   = useRef(studyType);
+  const chapterRef     = useRef(chapter);
   const sessionStartRef = useRef(sessionStart);
   const totalRoundsRef = useRef(totalRounds);
 
@@ -267,6 +320,8 @@ function PomodoroTimer() {
   roundRef.current       = round;
   presetRef.current      = preset;
   subjectRef.current     = subject;
+  studyTypeRef.current   = studyType;
+  chapterRef.current     = chapter;
   sessionStartRef.current = sessionStart;
   totalRoundsRef.current = totalRounds;
 
@@ -311,6 +366,8 @@ function PomodoroTimer() {
           endTime:         new Date().toISOString(),
           durationMinutes: currentPreset.work,
           notes:           `🍅 Pomodoro #${currentRound} (${currentPreset.work} min)`,
+          studyType:       studyTypeRef.current || 'self',
+          chapter:         chapterRef.current?.trim() || null,
         });
       }
 
@@ -487,6 +544,19 @@ function PomodoroTimer() {
         {/* Subject picker */}
         {!isRunning && (
           <div className="w-full mb-5">
+            <div className="mb-4 space-y-2">
+              <p className="text-xs text-white/40 text-center">Study mode</p>
+              <StudyTypeToggle value={studyType} onChange={setStudyType} />
+            </div>
+            <div className="mb-4 space-y-2">
+              <p className="text-xs text-white/40 text-center">Chapter / Topic</p>
+              <input
+                className="input text-sm w-full"
+                placeholder="Optional chapter or topic"
+                value={chapter}
+                onChange={(e) => setChapter(e.target.value)}
+              />
+            </div>
             <p className="text-xs text-white/40 text-center mb-3">Subject সিলেক্ট করো</p>
             <div className="flex flex-wrap gap-2 justify-center">
               {['Physics','Chemistry','Math','Botany','Zoology','English','Bangla','ICT'].map(s => (
@@ -602,29 +672,56 @@ function CustomLog() {
     mutationFn: (id) => sessionsAPI.deleteCustom(id),
     onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
   });
+function buildCustomSessionTimes(dateStr, durationMinutes) {
+  const today = getBSTDateString();
 
-  function handleSave() {
-    if (!subject)              { toast('Subject সিলেক্ট করো',         'warning'); return; }
-    const dur = hours * 60 + minutes;
-    if (dur < 1)               { toast('Duration কমপক্ষে ১ মিনিট দাও', 'warning'); return; }
+  const end =
+    dateStr === today
+      ? new Date()
+      : new Date(`${dateStr}T23:59:00+06:00`);
 
-    const noteStr = [
-      studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
-      chapter ? `📘 ${chapter}` : '',
-      notes   ? notes           : '',
-    ].filter(Boolean).join(' · ');
+  const start = new Date(end.getTime() - durationMinutes * 60 * 1000);
 
-    saveMutation.mutate({
-      subject,
-      date,
-      durationMinutes: dur,
-      studyType,
-      chapter: chapter || null,
-      notes:   noteStr || null,
-      startTime: null,
-      endTime:   null,
-    });
+  return {
+    startTime: start.toISOString(),
+    endTime: end.toISOString(),
+  };
+}
+
+ function handleSave() {
+  if (!subject) {
+    toast('Subject সিলেক্ট করো', 'warning');
+    return;
   }
+
+  const dur = hours * 60 + minutes;
+  if (dur < 1) {
+    toast('Duration কমপক্ষে ১ মিনিট দাও', 'warning');
+    return;
+  }
+
+  const noteStr = [
+    studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
+    chapter ? `📘 ${chapter}` : '',
+    notes ? notes : '',
+  ].filter(Boolean).join(' · ');
+
+  const { startTime, endTime } = buildCustomSessionTimes(date, dur);
+  const trimmedChapter = chapter.trim();
+  const trimmedNotes = notes.trim();
+  void noteStr;
+
+  saveMutation.mutate({
+    subject,
+    date,
+    durationMinutes: dur,
+    startTime,
+    endTime,
+    studyType,
+    chapter: trimmedChapter || null,
+    notes: trimmedNotes || null,
+  });
+}
 
   const today = getBSTDateString();
 
@@ -766,11 +863,7 @@ function CustomLog() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm text-white/80">{formatDuration(s.durationMinutes)}</p>
-                    {s.studyType === 'online' && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-blue/10 text-neon-blue border border-neon-blue/20">
-                        Online
-                      </span>
-                    )}
+                    <StudyTypeBadge studyType={s.studyType} />
                     {s.chapter && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.05] text-white/40">
                         {s.chapter}

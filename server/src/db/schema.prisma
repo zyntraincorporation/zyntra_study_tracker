@@ -53,6 +53,8 @@ model CustomStudySession {
   id              Int      @id @default(autoincrement())
   date            String   // YYYY-MM-DD in BST
   subject         String
+  studyType       String?  // self | online
+  chapter         String?
   startTime       DateTime // UTC stored, shown as BST
   endTime         DateTime
   durationMinutes Int

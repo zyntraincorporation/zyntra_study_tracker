@@ -14,6 +14,8 @@ const customSchema = z.object({
   endTime:         z.string().datetime(),
   durationMinutes: z.number().int().min(1),
   notes:           z.string().optional().nullable(),
+  chapter:         z.string().trim().max(200).optional().nullable(),
+  studyType:       z.enum(['self', 'online']).optional().nullable(),
   date:            z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
@@ -23,7 +25,14 @@ router.post('/custom', async (req, res) => {
     const date = data.date || getBSTDateString();
 
     const session = await prisma.customStudySession.create({
-      data: { ...data, date, startTime: new Date(data.startTime), endTime: new Date(data.endTime) },
+      data: {
+        ...data,
+        date,
+        chapter: data.chapter?.trim() || null,
+        studyType: data.studyType || null,
+        startTime: new Date(data.startTime),
+        endTime: new Date(data.endTime),
+      },
     });
 
     res.status(201).json(session);
