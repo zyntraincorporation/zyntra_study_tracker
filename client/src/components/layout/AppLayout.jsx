@@ -8,13 +8,7 @@ import { useAuthStore } from '../../store';
 import { getBSTDayName, getBSTTime } from '../../lib/schedule';
 import { useTimerStore } from '../../store';
 import { formatElapsed } from '../../lib/schedule';
-const tick = useTimerStore(s => s.tick);
 
-// Global ticker — AppLayout কখনো unmount হয় না
-useEffect(() => {
-  const id = setInterval(tick, 500);
-  return () => clearInterval(id);
-}, [tick]);
 const NAV = [
   { to: '/',         icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/checkin',  icon: CheckSquare,     label: 'Check-in'  },
