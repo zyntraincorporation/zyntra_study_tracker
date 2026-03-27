@@ -115,10 +115,19 @@ function FreeTimer() {
   const [isRunning,   setIsRunning]   = useState(false);
   const [elapsed,     setElapsed]     = useState(0);        // ms
   const [subject,     setSubject]     = useState('');
-  const [studyType,   setStudyType]   = useState('self');
+  // const [studyType,   setStudyType]   = useState('self');
+  // const [notes,       setNotes]       = useState('');
+  // const [chapter,     setChapter]     = useState('');
+// Store থেকে নাও — page বদলালেও চলতে থাকবে
+const isRunning = useTimerStore(s => s.isRunning);
+const elapsed   = useTimerStore(s => s.elapsed);
+const subject   = useTimerStore(s => s.subject);
+const start     = useTimerStore(s => s.start);
+const stop      = useTimerStore(s => s.stop);
+const [studyType,   setStudyType]   = useState('self');
   const [notes,       setNotes]       = useState('');
-  const [chapter,     setChapter]     = useState('');
 
+  const [chapter,     setChapter]     = useState('');
   const startedAtRef    = useRef(null);   // Date.now() when started
   const startTimeISORef = useRef(null);   // ISO string for saving
   const intervalRef     = useRef(null);
@@ -168,51 +177,71 @@ function FreeTimer() {
     onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
   });
 
-  // ── Handlers ──────────────────────────────────
+  // // ── Handlers ──────────────────────────────────
+  // function handleStart() {
+  //   if (!subject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
+  //   const now = Date.now();
+  //   startedAtRef.current    = now;
+  //   startTimeISORef.current = new Date(now).toISOString();
+  //   setElapsed(0);
+  //   setIsRunning(true);
+  // }
+
+  // function handleStop() {
+  //   clearInterval(intervalRef.current);
+  //   setIsRunning(false);
+
+  //   const endTime        = new Date().toISOString();
+  //   const totalMs        = Date.now() - startedAtRef.current;
+  //   const durationMinutes = Math.round(totalMs / 60000);
+
+  //   if (durationMinutes < 1) {
+  //     toast('Session অনেক ছোট (১ মিনিটের কম)', 'warning');
+  //     setElapsed(0);
+  //     return;
+  //   }
+
+  //   const noteStr = [
+  //     studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
+  //     chapter ? `📘 ${chapter}` : '',
+  //     notes   ? notes           : '',
+  //   ].filter(Boolean).join(' · ');
+
+  //   saveMutation.mutate({
+  //     subject,
+  //     startTime:       startTimeISORef.current,
+  //     endTime,
+  //     durationMinutes,
+  //     studyType,
+  //     chapter:         chapter || null,
+  //     notes:           noteStr || null,
+  //     date:            getBSTDateString(),
+  //   });
+
+  //   setElapsed(0);
+  //   startedAtRef.current    = null;
+  //   startTimeISORef.current = null;
+  // }
   function handleStart() {
-    if (!subject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
-    const now = Date.now();
-    startedAtRef.current    = now;
-    startTimeISORef.current = new Date(now).toISOString();
-    setElapsed(0);
-    setIsRunning(true);
-  }
+  if (!selectedSubject) { toast('আগে subject সিলেক্ট করো', 'warning'); return; }
+  start(selectedSubject);
+}
 
-  function handleStop() {
-    clearInterval(intervalRef.current);
-    setIsRunning(false);
-
-    const endTime        = new Date().toISOString();
-    const totalMs        = Date.now() - startedAtRef.current;
-    const durationMinutes = Math.round(totalMs / 60000);
-
-    if (durationMinutes < 1) {
-      toast('Session অনেক ছোট (১ মিনিটের কম)', 'warning');
-      setElapsed(0);
-      return;
-    }
-
-    const noteStr = [
-      studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
-      chapter ? `📘 ${chapter}` : '',
-      notes   ? notes           : '',
-    ].filter(Boolean).join(' · ');
-
-    saveMutation.mutate({
-      subject,
-      startTime:       startTimeISORef.current,
-      endTime,
-      durationMinutes,
-      studyType,
-      chapter:         chapter || null,
-      notes:           noteStr || null,
-      date:            getBSTDateString(),
-    });
-
-    setElapsed(0);
-    startedAtRef.current    = null;
-    startTimeISORef.current = null;
-  }
+function handleStop() {
+  const result = stop();
+  if (result.durationMinutes < 1) { toast('Session অনেক ছোট', 'warning'); return; }
+  const noteStr = [
+    studyType === 'online' ? '🖥️ Online Class' : '📖 Self Study',
+    chapter ? `📘 ${chapter}` : '',
+    notes   ? notes : '',
+  ].filter(Boolean).join(' · ');
+  saveMutation.mutate({
+    subject: result.subject, startTime: result.startTime,
+    endTime: result.endTime, durationMinutes: result.durationMinutes,
+    notes: noteStr || null, date: getBSTDateString(),
+  });
+  setNotes(''); setChapter('');
+}
 
   // ── Derived ───────────────────────────────────
   const today      = getBSTDateString();
@@ -227,7 +256,7 @@ function FreeTimer() {
         <div className={`text-7xl font-mono font-bold tracking-tight mb-6 transition-colors ${
           isRunning ? 'text-neon-green' : 'text-white/20'
         }`}>
-          {fmtElapsed(elapsed)}
+          {formatElapsed(Math.floor(elapsed / 1000))}
         </div>
 
         {/* Running indicator */}

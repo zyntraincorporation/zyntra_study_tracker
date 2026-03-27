@@ -23,36 +23,42 @@ export const useAuthStore = create(
 
 // ── Timer store (custom study session in progress) ────────────────────────────
 export const useTimerStore = create((set, get) => ({
-  isRunning:  false,
-  subject:    null,
-  startTime:  null,
-  elapsed:    0,       // seconds
-  intervalId: null,
+  isRunning:    false,
+  subject:      null,
+  startTime:    null,   // ISO string
+  startedAtMs:  null,   // Date.now() when started
+  elapsed:      0,      // ms — updated by AppLayout ticker
 
   start: (subject) => {
-    const startTime = new Date().toISOString();
-    const intervalId = setInterval(() => {
-      set((s) => ({ elapsed: s.elapsed + 1 }));
-    }, 1000);
-    set({ isRunning: true, subject, startTime, elapsed: 0, intervalId });
+    const now = Date.now();
+    set({
+      isRunning:   true,
+      subject,
+      startTime:   new Date(now).toISOString(),
+      startedAtMs: now,
+      elapsed:     0,
+    });
+  },
+
+  tick: () => {
+    const { startedAtMs, isRunning } = get();
+    if (isRunning && startedAtMs) {
+      set({ elapsed: Date.now() - startedAtMs });
+    }
   },
 
   stop: () => {
-    const { intervalId, subject, startTime, elapsed } = get();
-    if (intervalId) clearInterval(intervalId);
-    const endTime = new Date().toISOString();
-    const durationMinutes = Math.round(elapsed / 60);
-    set({ isRunning: false, subject: null, startTime: null, elapsed: 0, intervalId: null });
+    const { subject, startTime, elapsed } = get();
+    const endTime         = new Date().toISOString();
+    const durationMinutes = Math.round(elapsed / 60000);
+    set({ isRunning: false, subject: null, startTime: null, startedAtMs: null, elapsed: 0 });
     return { subject, startTime, endTime, durationMinutes };
   },
 
   reset: () => {
-    const { intervalId } = get();
-    if (intervalId) clearInterval(intervalId);
-    set({ isRunning: false, subject: null, startTime: null, elapsed: 0, intervalId: null });
+    set({ isRunning: false, subject: null, startTime: null, startedAtMs: null, elapsed: 0 });
   },
 }));
-
 // ── UI store (toasts, modal state) ────────────────────────────────────────────
 export const useUIStore = create((set, get) => ({
   toasts:     [],
