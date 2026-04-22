@@ -20,6 +20,7 @@ const revisionsRoutes = require('./routes/revisions');
 const mistakesRoutes  = require('./routes/mistakes');
 const notesRoutes     = require('./routes/notes');
 const targetsRoutes   = require('./routes/targets');
+const { startSessionAutoMissWorker } = require('./lib/sessionReconciliation');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -107,5 +108,7 @@ app.listen(PORT, () => {
   ╚═══════════════════════════════════════════╝
   `);
 });
+
+startSessionAutoMissWorker();
 
 module.exports = app;

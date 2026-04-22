@@ -42,14 +42,23 @@ router.post('/custom', async (req, res) => {
   }
 });
 
-// GET /api/sessions/custom?days=7 — list custom sessions
+// GET /api/sessions/custom?days=60 — list custom sessions
 router.get('/custom', async (req, res) => {
   try {
-    const days   = Math.min(Number(req.query.days) || 7, 90);
+    const days   = Math.min(Number(req.query.days) || 60, 90);
     const cutoff = getBSTDateString(new Date(Date.now() - days * 86400000));
 
     const sessions = await prisma.customStudySession.findMany({
       where:   { date: { gte: cutoff } },
+      select:  {
+        id: true,
+        date: true,
+        subject: true,
+        studyType: true,
+        chapter: true,
+        durationMinutes: true,
+        notes: true,
+      },
       orderBy: { startTime: 'desc' },
     });
 

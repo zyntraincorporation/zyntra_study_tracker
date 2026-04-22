@@ -1,82 +1,90 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
 import { checkinAPI } from '../../lib/api';
-import { MISS_REASONS, getBSTDateString, getBSTDayName, SESSION_SLOTS } from '../../lib/schedule';
+import { MISS_REASONS, SESSION_SLOTS } from '../../lib/schedule';
 import { SubjectBadge } from '../ui/Shared';
 import { useUIStore } from '../../store';
 
+function getDefaultActualMinutes(sessionNumber) {
+  return sessionNumber === 2 ? 150 : 120;
+}
+
 export default function PendingSessionModal({ pending = [] }) {
-  const isOpen     = useUIStore((s) => s.isOpen('pending-session'));
+  const isOpen = useUIStore((s) => s.isOpen('pending-session'));
   const closeModal = useUIStore((s) => s.closeModal);
-  const toast      = useUIStore((s) => s.toast);
-  const qc         = useQueryClient();
+  const toast = useUIStore((s) => s.toast);
+  const qc = useQueryClient();
 
   const [index, setIndex] = useState(0);
-  const [step,  setStep]  = useState('question'); // 'question' | 'miss-form'
-  const [form,  setForm]  = useState({ reason: '', didInstead: '', actualMinutes: 0, notes: '' });
+  const [step, setStep] = useState('question');
+  const [form, setForm] = useState({ reason: '', didInstead: '', actualMinutes: 0, notes: '' });
 
   const mutation = useMutation({
     mutationFn: (data) => checkinAPI.saveSession(data),
-    onSuccess:  () => {
-      qc.invalidateQueries(['sessions-today']);
-      qc.invalidateQueries(['pending-sessions']);
-      qc.invalidateQueries(['weekly-stats']);
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions-today'] });
+      qc.invalidateQueries({ queryKey: ['pending-sessions'] });
+      qc.invalidateQueries({ queryKey: ['weekly-stats'] });
       next();
     },
     onError: (err) => toast(err.response?.data?.error || 'Failed to save', 'error'),
   });
 
+  function resetStep() {
+    setStep('question');
+    setForm({ reason: '', didInstead: '', actualMinutes: 0, notes: '' });
+  }
+
   function next() {
     if (index < pending.length - 1) {
-      setIndex(i => i + 1);
-      setStep('question');
-      setForm({ reason: '', didInstead: '', actualMinutes: 0, notes: '' });
-    } else {
-      toast('All sessions logged! 🎯', 'success');
-      closeModal('pending-session');
-      setIndex(0);
-      setStep('question');
+      setIndex((i) => i + 1);
+      resetStep();
+      return;
     }
+
+    toast('All sessions logged!', 'success');
+    closeModal('pending-session');
+    setIndex(0);
+    resetStep();
   }
 
   function logCompleted() {
     const session = pending[index];
     mutation.mutate({
-      date:          getBSTDateString(),
-      dayOfWeek:     getBSTDayName(),
+      date: session.sessionDate,
+      dayOfWeek: session.dayOfWeek,
       sessionNumber: session.sessionNumber,
-      subject:       session.subjects[0],
-      completed:     true,
-      actualMinutes: SESSION_SLOTS[session.sessionNumber].endHour < 12
-                     ? 120 : session.sessionNumber === 2 ? 150 : 120,
+      subject: session.subjects[0],
+      completed: true,
+      actualMinutes: getDefaultActualMinutes(session.sessionNumber),
+      notes: null,
     });
   }
 
   function logMissed() {
     const session = pending[index];
     mutation.mutate({
-      date:          getBSTDateString(),
-      dayOfWeek:     getBSTDayName(),
+      date: session.sessionDate,
+      dayOfWeek: session.dayOfWeek,
       sessionNumber: session.sessionNumber,
-      subject:       session.subjects[0],
-      completed:     false,
+      subject: session.subjects[0],
+      completed: false,
       actualMinutes: Number(form.actualMinutes) || 0,
-      reasonMissed:  form.reason || 'Not provided',
-      didInstead:    form.didInstead,
-      notes:         form.notes,
+      reasonMissed: form.reason || 'Other',
+      didInstead: form.didInstead,
+      notes: form.notes,
     });
   }
 
   if (!isOpen || pending.length === 0) return null;
 
   const session = pending[index];
-  const slot    = SESSION_SLOTS[session.sessionNumber];
+  const slot = SESSION_SLOTS[session.sessionNumber];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-md card p-6 animate-slide-up">
-        {/* Progress */}
         <div className="flex items-center gap-2 mb-5">
           {pending.map((_, i) => (
             <div
@@ -91,16 +99,16 @@ export default function PendingSessionModal({ pending = [] }) {
 
         {step === 'question' ? (
           <>
-            {/* Session info */}
             <div className="mb-5">
               <div className="text-xs font-mono text-white/30 mb-1">
-                {slot.label} · {slot.display}
+                {slot.label} - {slot.display}
               </div>
-              <h2 className="text-base font-semibold text-white mb-2">
-                Did you complete this session?
-              </h2>
+              <h2 className="text-base font-semibold text-white mb-2">Did you complete this session?</h2>
+              <p className="text-xs text-white/30 mb-3">
+                Scheduled on {session.sessionDate}
+              </p>
               <div className="flex flex-wrap gap-1.5">
-                {session.subjects.map(s => <SubjectBadge key={s} subject={s} />)}
+                {session.subjects.map((subject) => <SubjectBadge key={subject} subject={subject} />)}
               </div>
             </div>
 
@@ -121,7 +129,7 @@ export default function PendingSessionModal({ pending = [] }) {
               >
                 <XCircle size={24} className="text-red-400" />
                 <span className="text-sm font-semibold text-red-400">NO</span>
-                <span className="text-[11px] text-red-400/60">Didn't study</span>
+                <span className="text-[11px] text-red-400/60">Did not study</span>
               </button>
             </div>
 
@@ -140,14 +148,14 @@ export default function PendingSessionModal({ pending = [] }) {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-white/40 mb-1 block">Why didn't you study? *</label>
+                <label className="text-xs text-white/40 mb-1 block">Why did you miss it? *</label>
                 <select
                   className="select"
                   value={form.reason}
-                  onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
                 >
-                  <option value="">Select reason…</option>
-                  {MISS_REASONS.map(r => <option key={r}>{r}</option>)}
+                  <option value="">Select reason...</option>
+                  {MISS_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
                 </select>
               </div>
 
@@ -155,19 +163,21 @@ export default function PendingSessionModal({ pending = [] }) {
                 <label className="text-xs text-white/40 mb-1 block">What did you do instead?</label>
                 <input
                   className="input"
-                  placeholder="e.g. Was on phone, went to sleep…"
+                  placeholder="e.g. Was on phone, went to sleep..."
                   value={form.didInstead}
-                  onChange={e => setForm(f => ({ ...f, didInstead: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, didInstead: e.target.value }))}
                 />
               </div>
 
               <div>
                 <label className="text-xs text-white/40 mb-1 block">Minutes actually studied (0 if none)</label>
                 <input
-                  type="number" min="0" max="180"
+                  type="number"
+                  min="0"
+                  max="180"
                   className="input"
                   value={form.actualMinutes}
-                  onChange={e => setForm(f => ({ ...f, actualMinutes: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, actualMinutes: e.target.value }))}
                 />
               </div>
 
@@ -176,23 +186,23 @@ export default function PendingSessionModal({ pending = [] }) {
                 <textarea
                   className="input resize-none"
                   rows={2}
-                  placeholder="Anything else…"
+                  placeholder="Anything else..."
                   value={form.notes}
-                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 />
               </div>
             </div>
 
             <div className="flex gap-2 mt-4">
               <button onClick={() => setStep('question')} className="btn-secondary flex-none px-3">
-                ← Back
+                Back
               </button>
               <button
                 onClick={logMissed}
                 disabled={mutation.isPending || !form.reason}
                 className="btn-danger flex-1"
               >
-                {mutation.isPending ? 'Saving…' : 'Log missed session'}
+                {mutation.isPending ? 'Saving...' : 'Log missed session'}
               </button>
             </div>
           </>

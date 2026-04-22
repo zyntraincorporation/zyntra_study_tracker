@@ -5,9 +5,42 @@ const router = require('express').Router();
 const { z } = require('zod');
 const prisma = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
-const { getBSTDateString, getBSTDayName, getDaySchedule, getBSTTime } = require('../lib/schedule');
+const { getBSTDateString, getBSTTime } = require('../lib/schedule');
+const {
+  AUTO_MISS_REASON,
+  getRelevantScheduledSessions,
+  reconcileScheduledSessionLogs,
+} = require('../lib/sessionReconciliation');
 
 router.use(requireAuth);
+
+function getSessionKey(sessionDate, sessionNumber) {
+  return `${sessionDate}:${sessionNumber}`;
+}
+
+function serializeScheduledSession(session, log = null) {
+  const { startAt, endAt, ...rest } = session;
+  return { ...rest, log };
+}
+
+function normalizeSessionData(data) {
+  if (data.completed) {
+    return {
+      ...data,
+      actualMinutes: data.actualMinutes,
+      reasonMissed: null,
+      didInstead: null,
+      notes: data.notes ?? null,
+    };
+  }
+
+  return {
+    ...data,
+    reasonMissed: data.reasonMissed || AUTO_MISS_REASON,
+    didInstead: data.didInstead || null,
+    notes: data.notes || null,
+  };
+}
 
 // ── Morning check-in ──────────────────────────────────────────────────────────
 
@@ -71,22 +104,52 @@ router.get('/morning/history', async (req, res) => {
 // GET /api/checkin/sessions/today — today's session logs + pending sessions
 router.get('/sessions/today', async (req, res) => {
   try {
-    const today    = getBSTDateString();
-    const dayName  = getBSTDayName();
+    const now = new Date();
+    await reconcileScheduledSessionLogs(now);
+
+    const {
+      currentDate,
+      currentDayName,
+      currentSchedule,
+      carryover,
+      relevantDates,
+    } = getRelevantScheduledSessions(now);
     const { hour, minute } = getBSTTime();
 
-    const logs     = await prisma.sessionLog.findMany({ where: { date: today } });
-    const schedule = getDaySchedule(dayName);
+    const logs = await prisma.sessionLog.findMany({
+      where:   { date: { in: relevantDates } },
+      orderBy: [{ date: 'desc' }, { sessionNumber: 'asc' }],
+    });
 
-    // Enrich schedule with logged status
-    const enriched = schedule
-      ? schedule.map(session => {
-          const log = logs.find(l => l.sessionNumber === session.sessionNumber);
-          return { ...session, log: log || null };
-        })
-      : null;
+    const logsByKey = new Map(
+      logs.map((log) => [getSessionKey(log.date, log.sessionNumber), log])
+    );
 
-    res.json({ date: today, dayName, currentHour: hour, currentMinute: minute, schedule: enriched, logs });
+    const schedule = currentSchedule.map((session) => (
+      serializeScheduledSession(
+        session,
+        logsByKey.get(getSessionKey(session.sessionDate, session.sessionNumber)) || null
+      )
+    ));
+
+    const carryoverSessions = carryover.map((session) => (
+      serializeScheduledSession(
+        session,
+        logsByKey.get(getSessionKey(session.sessionDate, session.sessionNumber)) || null
+      )
+    ));
+
+    const todayLogs = logs.filter((log) => log.date === currentDate);
+
+    res.json({
+      date: currentDate,
+      dayName: currentDayName,
+      currentHour: hour,
+      currentMinute: minute,
+      schedule,
+      carryover: carryoverSessions,
+      logs: todayLogs,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -95,26 +158,35 @@ router.get('/sessions/today', async (req, res) => {
 // GET /api/checkin/sessions/pending — sessions that ended but aren't logged yet
 router.get('/sessions/pending', async (req, res) => {
   try {
-    const today   = getBSTDateString();
-    const dayName = getBSTDayName();
-    const { hour, minute } = getBSTTime();
-    const schedule = getDaySchedule(dayName);
+    const now = new Date();
+    await reconcileScheduledSessionLogs(now);
 
-    if (!schedule) return res.json({ pending: [], isPracticeDay: true, dayName });
+    const {
+      currentDayName,
+      currentSchedule,
+      carryover,
+      relevantDates,
+    } = getRelevantScheduledSessions(now);
 
-    const logs    = await prisma.sessionLog.findMany({ where: { date: today } });
-    const loggedNums = new Set(logs.map(l => l.sessionNumber));
-
-    const pending = schedule.filter(session => {
-      if (loggedNums.has(session.sessionNumber)) return false;
-      const nowMins   = hour * 60 + minute;
-      const startMins = session.startHour * 60 + session.startMin;
-      let   endMins   = session.endHour   * 60 + session.endMin;
-      if (session.endHour < session.startHour) endMins += 1440;
-      return nowMins >= endMins; // session has ended
+    const logs = await prisma.sessionLog.findMany({
+      where:  { date: { in: relevantDates } },
+      select: { date: true, sessionNumber: true },
     });
 
-    res.json({ pending, isPracticeDay: false, dayName });
+    const loggedKeys = new Set(
+      logs.map((log) => getSessionKey(log.date, log.sessionNumber))
+    );
+
+    const pending = [...carryover, ...currentSchedule]
+      .filter((session) => session.endAt <= now)
+      .filter((session) => !loggedKeys.has(getSessionKey(session.sessionDate, session.sessionNumber)))
+      .map((session) => serializeScheduledSession(session));
+
+    res.json({
+      pending,
+      isPracticeDay: currentSchedule.length === 0,
+      dayName: currentDayName,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -135,7 +207,8 @@ const sessionSchema = z.object({
 
 router.post('/sessions', async (req, res) => {
   try {
-    const data = sessionSchema.parse(req.body);
+    const parsed = sessionSchema.parse(req.body);
+    const data = normalizeSessionData(parsed);
 
     const log = await prisma.sessionLog.upsert({
       where:  { date_sessionNumber: { date: data.date, sessionNumber: data.sessionNumber } },

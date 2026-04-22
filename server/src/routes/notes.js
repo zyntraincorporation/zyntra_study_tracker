@@ -18,16 +18,28 @@ router.get('/today', async (req, res) => {
   }
 });
 
-// GET /api/notes?days=30
+// GET /api/notes?page=1&limit=30
 router.get('/', async (req, res) => {
   try {
-    const days   = Math.min(Number(req.query.days) || 30, 180);
-    const cutoff = getBSTDateString(new Date(Date.now() - days * 86400000));
-    const notes  = await prisma.dailyNote.findMany({
-      where:   { date: { gte: cutoff } },
-      orderBy: { date: 'desc' },
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 50);
+    const skip = (page - 1) * limit;
+
+    const [total, notes] = await Promise.all([
+      prisma.dailyNote.count(),
+      prisma.dailyNote.findMany({
+        skip,
+        take: limit,
+        orderBy: { date: 'desc' },
+      }),
+    ]);
+
+    res.json({
+      items: notes,
+      page,
+      limit,
+      hasMore: skip + notes.length < total,
     });
-    res.json(notes);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

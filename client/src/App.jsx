@@ -9,6 +9,7 @@ import StatsPage from './pages/StatsPage';
 import ChaptersPage from './pages/ChaptersPage';
 import AIReportPage  from './pages/AIReportPage';
 import RevisionPage  from './pages/RevisionPage';
+import NotesPage     from './pages/NotesPage';
 import MistakePage   from './pages/MistakePage';
 import RoutinePage   from './pages/RoutinePage';
 import Toast from './components/ui/Toast';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="chapters"      element={<ChaptersPage />} />
           <Route path="ai"            element={<AIReportPage />} />
           <Route path="revision"      element={<RevisionPage />} />
+          <Route path="notes"         element={<NotesPage />} />
           <Route path="mistakes"      element={<MistakePage />} />
           <Route path="routine"       element={<RoutinePage />} />
         </Route>

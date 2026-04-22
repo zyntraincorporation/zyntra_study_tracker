@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CheckSquare, Timer, BarChart2, RotateCcw, AlertTriangle, CalendarDays,
-  BookOpen, Sparkles, LogOut, Menu, X, Zap
+  BookOpen, Sparkles, LogOut, Menu, X, Zap, FileText
 } from 'lucide-react';
 import { useAuthStore } from '../../store';
 import { getBSTDayName, getBSTTime } from '../../lib/schedule';
@@ -18,6 +18,7 @@ const NAV = [
   { to: '/ai',       icon: Sparkles,   label: 'AI Mentor'  },
   { to: '/routine',  icon: CalendarDays, label: 'Routine'    },
   { to: '/revision', icon: RotateCcw,  label: 'Revision'   },
+  { to: '/notes',    icon: FileText,   label: 'Daily Notes' },
   { to: '/mistakes', icon: AlertTriangle, label: 'Mistakes'   },
 ];
 
@@ -160,6 +161,10 @@ function PageTitle() {
     '/stats':    'Weekly Statistics',
     '/chapters': 'Chapter Progress',
     '/ai':       'AI Mentor Analysis',
+    '/revision': 'Revision Tracker',
+    '/notes':    'Daily Notes',
+    '/routine':  'Monthly Routine',
+    '/mistakes': 'Mistake Log',
   };
   return (
     <h1 className="text-sm font-semibold text-white/80">

@@ -26,6 +26,10 @@ const WEEKLY_SCHEDULE = {
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
 // ── Core BST helpers ───────────────────────────────────────────────────────────
 
 /**
@@ -42,8 +46,8 @@ function getBSTNow() {
 function getBSTDateString(date = null) {
   const d = date ? new Date(date.getTime() + BST_OFFSET_MS) : getBSTNow();
   const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
+  const m = pad2(d.getUTCMonth() + 1);
+  const day = pad2(d.getUTCDate());
   return `${y}-${m}-${day}`;
 }
 
@@ -53,6 +57,20 @@ function getBSTDateString(date = null) {
 function getBSTDayName(date = null) {
   const d = date ? new Date(date.getTime() + BST_OFFSET_MS) : getBSTNow();
   return DAY_NAMES[d.getUTCDay()];
+}
+
+function parseBSTDateString(dateStr) {
+  return new Date(`${dateStr}T00:00:00+06:00`);
+}
+
+function addBSTDays(dateStr, days) {
+  const d = parseBSTDateString(dateStr);
+  d.setUTCDate(d.getUTCDate() + days);
+  return getBSTDateString(d);
+}
+
+function getBSTDayNameFromDateString(dateStr) {
+  return getBSTDayName(parseBSTDateString(dateStr));
 }
 
 /**
@@ -102,12 +120,40 @@ function getDaySchedule(dayName) {
       sessionNumber: Number(sessionNum),
       label: slot.label,
       subjects,
-      startTime: `${String(slot.startHour).padStart(2,'0')}:${String(slot.startMin).padStart(2,'0')}`,
-      endTime:   `${String(slot.endHour).padStart(2,'0')}:${String(slot.endMin).padStart(2,'0')}`,
+      startTime: `${pad2(slot.startHour)}:${pad2(slot.startMin)}`,
+      endTime:   `${pad2(slot.endHour)}:${pad2(slot.endMin)}`,
       startHour: slot.startHour,
       startMin:  slot.startMin,
       endHour:   slot.endHour,
       endMin:    slot.endMin,
+    };
+  });
+}
+
+function getSessionDateTimeRange(sessionDate, session) {
+  const endDate = session.endHour < session.startHour
+    ? addBSTDays(sessionDate, 1)
+    : sessionDate;
+
+  return {
+    startAt: new Date(`${sessionDate}T${pad2(session.startHour)}:${pad2(session.startMin)}:00+06:00`),
+    endAt:   new Date(`${endDate}T${pad2(session.endHour)}:${pad2(session.endMin)}:00+06:00`),
+  };
+}
+
+function getScheduledSessionsForDate(sessionDate) {
+  const dayName = getBSTDayNameFromDateString(sessionDate);
+  const daySchedule = getDaySchedule(dayName);
+  if (!daySchedule) return [];
+
+  return daySchedule.map((session) => {
+    const { startAt, endAt } = getSessionDateTimeRange(sessionDate, session);
+    return {
+      ...session,
+      sessionDate,
+      dayOfWeek: dayName,
+      startAt,
+      endAt,
     };
   });
 }
@@ -170,9 +216,14 @@ module.exports = {
   getBSTNow,
   getBSTDateString,
   getBSTDayName,
+  parseBSTDateString,
+  addBSTDays,
+  getBSTDayNameFromDateString,
   getBSTTime,
   getSessionStatus,
   getDaySchedule,
+  getSessionDateTimeRange,
+  getScheduledSessionsForDate,
   getPendingSessions,
   getActiveSession,
   getDateRange,

@@ -26,6 +26,9 @@ const STUDY_TYPES = [
   { key: 'online', label: '🖥️ Online Class', icon: Monitor   },
 ];
 
+const EXTRA_SESSION_HISTORY_DAYS = 60;
+const CUSTOM_SESSION_QUERY_KEY = ['custom-sessions', EXTRA_SESSION_HISTORY_DAYS];
+
 function StudyTypeBadge({ studyType }) {
   if (!studyType) return null;
   const isOnline = studyType === 'online';
@@ -107,14 +110,14 @@ function FreeTimer() {
   const [notes, setNotes] = useState('');
 
   const { data: recentData } = useQuery({
-    queryKey: ['custom-sessions'],
-    queryFn:  () => sessionsAPI.getCustom(7).then(r => r.data),
+    queryKey: CUSTOM_SESSION_QUERY_KEY,
+    queryFn:  () => sessionsAPI.getCustom(EXTRA_SESSION_HISTORY_DAYS).then(r => r.data),
   });
 
   const saveMutation = useMutation({
     mutationFn: (data) => sessionsAPI.saveCustom(data),
     onSuccess: () => {
-      qc.invalidateQueries(['custom-sessions']);
+      qc.invalidateQueries({ queryKey: CUSTOM_SESSION_QUERY_KEY });
       qc.invalidateQueries(['weekly-stats']);
       toast('Session save হয়েছে! 🎯', 'success');
       setSelectedChapter('');
@@ -125,7 +128,7 @@ function FreeTimer() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => sessionsAPI.deleteCustom(id),
-    onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: CUSTOM_SESSION_QUERY_KEY }),
   });
 
   function handleStart() {
@@ -328,7 +331,7 @@ function PomodoroTimer() {
   const saveMutation = useMutation({
     mutationFn: (data) => sessionsAPI.saveCustom(data),
     onSuccess:  () => {
-      qc.invalidateQueries(['custom-sessions']);
+      qc.invalidateQueries({ queryKey: CUSTOM_SESSION_QUERY_KEY });
       qc.invalidateQueries(['weekly-stats']);
     },
   });
@@ -650,14 +653,14 @@ function CustomLog() {
   const [date,      setDate]      = useState(getBSTDateString());
 
   const { data: recentData } = useQuery({
-    queryKey: ['custom-sessions'],
-    queryFn:  () => sessionsAPI.getCustom(14).then(r => r.data),
+    queryKey: CUSTOM_SESSION_QUERY_KEY,
+    queryFn:  () => sessionsAPI.getCustom(EXTRA_SESSION_HISTORY_DAYS).then(r => r.data),
   });
 
   const saveMutation = useMutation({
     mutationFn: (data) => sessionsAPI.saveCustom(data),
     onSuccess: () => {
-      qc.invalidateQueries(['custom-sessions']);
+      qc.invalidateQueries({ queryKey: CUSTOM_SESSION_QUERY_KEY });
       qc.invalidateQueries(['weekly-stats']);
       toast('Log save হয়েছে! ✅', 'success');
       setChapter('');
@@ -670,7 +673,7 @@ function CustomLog() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => sessionsAPI.deleteCustom(id),
-    onSuccess:  () => qc.invalidateQueries(['custom-sessions']),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: CUSTOM_SESSION_QUERY_KEY }),
   });
 function buildCustomSessionTimes(dateStr, durationMinutes) {
   const today = getBSTDateString();

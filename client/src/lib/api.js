@@ -86,7 +86,7 @@ export const checkinAPI = {
 
 export const sessionsAPI = {
   saveCustom:     (data) => api.post('/api/sessions/custom', data),
-  getCustom:      (days) => api.get(`/api/sessions/custom?days=${days || 7}`),
+  getCustom:      (days) => api.get(`/api/sessions/custom?days=${days || 60}`),
   deleteCustom:   (id)   => api.delete(`/api/sessions/custom/${id}`),
   savePractice:   (data) => api.post('/api/sessions/practice', data),
   getPractice:    (days) => api.get(`/api/sessions/practice?days=${days || 30}`),
@@ -118,10 +118,10 @@ export const revisionsAPI = {
 };
 
 export const notesAPI = {
-  getToday:   ()          => api.get('/api/notes/today'),
-  getAll:     (days)      => api.get(`/api/notes?days=${days || 30}`),
-  save:       (data)      => api.post('/api/notes', data),
-  delete:     (date)      => api.delete(`/api/notes/${date}`),
+  getToday:   ()                    => api.get('/api/notes/today'),
+  getAll:     ({ page = 1, limit = 30 } = {}) => api.get(`/api/notes?page=${page}&limit=${limit}`),
+  save:       (data)                => api.post('/api/notes', data),
+  delete:     (date)                => api.delete(`/api/notes/${date}`),
 };
 
 export const mistakesAPI = {
