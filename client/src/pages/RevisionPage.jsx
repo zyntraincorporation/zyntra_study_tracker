@@ -6,22 +6,22 @@ import { LoadingCard } from '../components/ui/Shared';
 import { useUIStore } from '../store';
 
 const SUBJECT_META = {
-  Physics:    { emoji: 'âš¡', color: 'text-sky-400',     bg: 'bg-sky-500/10',     border: 'border-sky-500/20'     },
-  Chemistry:  { emoji: 'ðŸ§ª', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  HigherMath: { emoji: 'ðŸ“', color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20'  },
-  Botany:     { emoji: 'ðŸŒ¿', color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/20'   },
-  Zoology:    { emoji: 'ðŸ¦‹', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20'   },
-  English1:   { emoji: 'ðŸ“–', color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/20'    },
-  English2:   { emoji: 'âœï¸', color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20'    },
-  Bangla1:    { emoji: 'ðŸ“š', color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20'  },
-  Bangla2:    { emoji: 'ðŸ–Šï¸', color: 'text-yellow-400',  bg: 'bg-yellow-500/10',  border: 'border-yellow-500/20'  },
-  ICT:        { emoji: 'ðŸ’»', color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20'    },
+  Physics:    { emoji: '⚡', color: 'text-sky-400',     bg: 'bg-sky-500/10',     border: 'border-sky-500/20'     },
+  Chemistry:  { emoji: '🧪', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+  HigherMath: { emoji: '📐', color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20'  },
+  Botany:     { emoji: '🌿', color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/20'   },
+  Zoology:    { emoji: '🦋', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20'   },
+  English1:   { emoji: '📖', color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/20'    },
+  English2:   { emoji: '✍️', color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20'    },
+  Bangla1:    { emoji: '📚', color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20'  },
+  Bangla2:    { emoji: '🗂️', color: 'text-yellow-400',  bg: 'bg-yellow-500/10',  border: 'border-yellow-500/20'  },
+  ICT:        { emoji: '💻', color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20'    },
 };
 
 const TABS = [
-  { key: 'due',     label: 'à¦†à¦œ Revision à¦•à¦°à§‹', icon: RefreshCw  },
-  { key: 'log',     label: 'Revision Log à¦•à¦°à§‹', icon: CheckCircle2 },
-  { key: 'history', label: 'à¦‡à¦¤à¦¿à¦¹à¦¾à¦¸',           icon: Calendar    },
+  { key: 'due',     label: 'আজ Revision করো', icon: RefreshCw  },
+  { key: 'log',     label: 'Revision Log করো', icon: CheckCircle2 },
+  { key: 'history', label: 'ইতিহাস',           icon: Calendar    },
 ];
 
 export default function RevisionPage() {
@@ -31,7 +31,7 @@ export default function RevisionPage() {
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-bold text-white">Revision Tracker</h2>
-        <p className="text-xs text-white/40 mt-1">Spaced repetition: à§§à¦® revision à§­ à¦¦à¦¿à¦¨ à¦ªà¦°, à§¨à¦¯à¦¼ à§§à§ª à¦¦à¦¿à¦¨ à¦ªà¦°, à§©à¦¯à¦¼ à§©à§¦ à¦¦à¦¿à¦¨ à¦ªà¦°</p>
+        <p className="text-xs text-white/40 mt-1">Spaced repetition: ১ম revision ৭ দিন পর, ২য় ১২ দিন পর, ৩য় ৩০ দিন পর</p>
       </div>
 
       <div className="flex gap-1 bg-navy-700/40 rounded-xl p-1 overflow-x-auto">
@@ -76,10 +76,10 @@ function DueTab() {
       qc.invalidateQueries(['chapters']);
       const next = res.data.nextDueDate;
       toast(next
-        ? `Revision à¦²à¦— à¦¹à¦¯à¦¼à§‡à¦›à§‡! à¦ªà¦°à§‡à¦° revision: ${next} ðŸ“…`
-        : `Revision à¦²à¦— à¦¹à¦¯à¦¼à§‡à¦›à§‡! à¦à¦‡ chapter mastered âœ…`, 'success');
+        ? `Revision লগ হয়েছে! পরের revision: ${next} 📅`
+        : `Revision লগ হয়েছে! এই chapter mastered ✅`, 'success');
     },
-    onError: () => toast('à¦²à¦— à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿', 'error'),
+    onError: () => toast('লগ করা যায়নি', 'error'),
   });
 
   if (isLoading) return <LoadingCard rows={4} />;
@@ -93,10 +93,10 @@ function DueTab() {
         <div className="flex items-center gap-2 mb-3">
           <AlertCircle size={14} className={due.length > 0 ? 'text-red-400' : 'text-white/30'} />
           <h3 className="text-sm font-semibold text-white">
-            à¦†à¦œ revision à¦•à¦°à¦¤à§‡ à¦¹à¦¬à§‡
+            আজ revision করতে হবে
             {due.length > 0 && (
               <span className="ml-2 text-xs bg-red-500/20 text-red-400 border border-red-500/20 rounded-full px-2 py-0.5">
-                {due.length}à¦Ÿà¦¾
+                {due.length}টা
               </span>
             )}
           </h3>
@@ -105,8 +105,8 @@ function DueTab() {
         {due.length === 0 ? (
           <div className="card p-6 text-center">
             <CheckCircle2 size={28} className="text-neon-green/40 mx-auto mb-2" />
-            <p className="text-sm text-white/40">à¦†à¦œ à¦•à§‹à¦¨à§‹ chapter revision à¦¦à¦°à¦•à¦¾à¦° à¦¨à§‡à¦‡ ðŸŽ‰</p>
-            <p className="text-xs text-white/20 mt-1">Chapter complete à¦•à¦°à¦²à§‡ à§­ à¦¦à¦¿à¦¨ à¦ªà¦° à¦¦à§‡à¦–à¦¾à¦¬à§‡</p>
+            <p className="text-sm text-white/40">আজ কোনো chapter revision দরকার নেই 🎉</p>
+            <p className="text-xs text-white/20 mt-1">Chapter complete করলে ৭ দিন পর দেখাবে</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -124,7 +124,7 @@ function DueTab() {
           <div className="flex items-center gap-2 mb-3">
             <Clock size={14} className="text-yellow-400" />
             <h3 className="text-sm font-semibold text-white/70">
-              à¦†à¦—à¦¾à¦®à§€ à§­ à¦¦à¦¿à¦¨à§‡ à¦†à¦¸à¦›à§‡ ({upcoming.length}à¦Ÿà¦¾)
+              আগামী ৭ দিনে আসছে ({upcoming.length}টা)
             </h3>
           </div>
           <div className="space-y-2">
@@ -135,7 +135,7 @@ function DueTab() {
                   <span className="text-base shrink-0">{meta.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white/70 truncate">{item.chapterName}</p>
-                    <p className="text-xs text-white/30">{item.subject} Â· {item.revisionCount}à¦¬à¦¾à¦° revision à¦¹à¦¯à¦¼à§‡à¦›à§‡</p>
+                    <p className="text-xs text-white/30">{item.subject} · {item.revisionCount}বার revision হয়েছে</p>
                   </div>
                   <span className="text-xs text-yellow-400 shrink-0">{item.dueDate}</span>
                 </div>
@@ -161,11 +161,11 @@ function RevisionDueCard({ item, onRevise, loading }) {
           <p className="text-sm font-medium text-white truncate">{item.chapterName}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-xs ${meta.color}`}>{item.subject}</span>
-            <span className="text-white/20">Â·</span>
+            <span className="text-white/20">·</span>
             <span className="text-xs text-white/35">Ch. {item.chapterNumber}</span>
-            <span className="text-white/20">Â·</span>
-            <span className="text-xs text-white/35">{item.revisionCount}à¦¬à¦¾à¦° revision à¦¹à¦¯à¦¼à§‡à¦›à§‡</span>
-            {item.overdue && <span className="text-xs text-red-400">âš ï¸ overdue</span>}
+            <span className="text-white/20">·</span>
+            <span className="text-xs text-white/35">{item.revisionCount}বার revision হয়েছে</span>
+            {item.overdue && <span className="text-xs text-red-400">⚠️ overdue</span>}
           </div>
         </div>
         <button
@@ -174,7 +174,7 @@ function RevisionDueCard({ item, onRevise, loading }) {
           disabled={loading}
         >
           <RefreshCw size={12} />
-          Revision à¦¦à¦¿à¦²à¦¾à¦®
+          Revision দিলাম
         </button>
       </div>
 
@@ -182,18 +182,18 @@ function RevisionDueCard({ item, onRevise, loading }) {
         <div className="mt-3 space-y-2 animate-fade-in">
           <input
             className="input text-sm"
-            placeholder="à¦•à§‹à¦¨à§‹ note? (optional) à¦¯à§‡à¦®à¦¨: à¦•à¦ à¦¿à¦¨ à¦²à¦¾à¦—à¦›à§‡, à¦«à¦°à§à¦®à§à¦²à¦¾ à¦®à¦¨à§‡ à¦¨à§‡à¦‡..."
+            placeholder="কোনো note? (optional) যেমন: কঠিন লাগছে, ফর্মূলা মনে নেই..."
             value={note}
             onChange={e => setNote(e.target.value)}
           />
           <div className="flex gap-2">
-            <button onClick={() => setShowNote(false)} className="btn-ghost text-xs">à¦¬à¦¾à¦¦ à¦¦à¦¾à¦“</button>
+            <button onClick={() => setShowNote(false)} className="btn-ghost text-xs">বাদ দাও</button>
             <button
               onClick={() => { onRevise(note || null); setShowNote(false); }}
               disabled={loading}
               className="btn-primary text-xs flex-1"
             >
-              {loading ? 'à¦¸à§‡à¦­ à¦¹à¦šà§à¦›à§‡...' : 'Revision à¦²à¦— à¦•à¦°à§‹ âœ“'}
+              {loading ? 'সেভ হচ্ছে...' : 'Revision লগ করো ✅'}
             </button>
           </div>
         </div>
@@ -205,7 +205,7 @@ function RevisionDueCard({ item, onRevise, loading }) {
           disabled={loading}
           className="mt-2 w-full py-1.5 rounded-lg bg-neon-green/10 border border-neon-green/20 text-neon-green text-xs hover:bg-neon-green/15 transition-all"
         >
-          âœ“ Quick revision done (note à¦›à¦¾à¦¡à¦¼à¦¾)
+          ✅ Quick revision done (note ছাড়া)
         </button>
       )}
     </div>
@@ -231,12 +231,12 @@ function LogTab({ onDone }) {
       qc.invalidateQueries(['revisions-history']);
       qc.invalidateQueries(['chapters']);
       const next = res.data.nextDueDate;
-      toast(next ? `âœ… Revision à¦²à¦—! à¦ªà¦°à§‡à¦°à¦Ÿà¦¾: ${next}` : 'âœ… Chapter mastered!', 'success');
+      toast(next ? `✅ Revision লগ! পরেরটা: ${next}` : '✅ Chapter mastered!', 'success');
       setSelectedChapter(null);
       setNote('');
       onDone();
     },
-    onError: () => toast('à¦²à¦— à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿', 'error'),
+    onError: () => toast('লগ করা যায়নি', 'error'),
   });
 
   const summary  = chapData?.summary || [];
@@ -247,7 +247,7 @@ function LogTab({ onDone }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-white/40">à¦¯à§‡ chapter revision à¦¦à¦¿à¦²à§‡ à¦¸à§‡à¦Ÿà¦¾ à¦¸à¦¿à¦²à§‡à¦•à§à¦Ÿ à¦•à¦°à§‹</p>
+      <p className="text-xs text-white/40">যে chapter revision দিলে সেটা সিলেক্ট করো</p>
 
       {subjects.map(({ subject, chapters }) => {
         const meta     = SUBJECT_META[subject] || {};
@@ -290,7 +290,7 @@ function LogTab({ onDone }) {
                         ? 'bg-neon-blue/10 text-neon-blue border border-neon-blue/20'
                         : 'bg-neon-green/10 text-neon-green border border-neon-green/20'
                     }`}>
-                      {ch.status === 'revised' ? 'â†» revised' : 'âœ“ done'}
+                      {ch.status === 'revised' ? '↻ revised' : '✓ done'}
                     </span>
                   </button>
                 ))}
@@ -303,7 +303,7 @@ function LogTab({ onDone }) {
       {selectedChapter && (
         <div className="card p-4 border-neon-green/30 bg-neon-green/5 animate-slide-up">
           <p className="text-sm font-semibold text-neon-green mb-3">
-            âœ“ à¦¨à¦¿à¦°à§à¦¬à¦¾à¦šà¦¿à¦¤: {selectedChapter.chapterName}
+            ✅ নির্বাচিত: {selectedChapter.chapterName}
           </p>
           <input
             className="input text-sm mb-3"
@@ -322,7 +322,7 @@ function LogTab({ onDone }) {
             disabled={mutation.isPending}
             className="btn-primary w-full"
           >
-            {mutation.isPending ? 'à¦¸à§‡à¦­ à¦¹à¦šà§à¦›à§‡...' : 'Revision à¦²à¦— à¦•à¦°à§‹ â†’'}
+            {mutation.isPending ? 'সেভ হচ্ছে...' : 'Revision লগ করো →'}
           </button>
         </div>
       )}
@@ -353,7 +353,7 @@ function HistoryTab() {
     <div className="space-y-5">
       {stats && (
         <div className="card p-4">
-          <p className="text-xs text-white/40 mb-3">Subject-wise revision count (à¦¸à¦¬ à¦¸à¦®à¦¯à¦¼à§‡à¦°)</p>
+          <p className="text-xs text-white/40 mb-3">Subject-wise revision count (সব সময়ের)</p>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
             {Object.entries(stats.bySubject || {}).map(([subj, count]) => {
               const meta = SUBJECT_META[subj] || {};
@@ -368,14 +368,14 @@ function HistoryTab() {
               );
             })}
           </div>
-          <p className="text-xs text-white/30 mt-3 text-right">à¦®à§‹à¦Ÿ {stats.total}à¦Ÿà¦¾ revision</p>
+          <p className="text-xs text-white/30 mt-3 text-right">মোট {stats.total}টা revision</p>
         </div>
       )}
 
       {Object.keys(byDate).length === 0 ? (
         <div className="card p-8 text-center">
           <RefreshCw size={28} className="text-white/10 mx-auto mb-2" />
-          <p className="text-sm text-white/30">à¦à¦–à¦¨à§‹ à¦•à§‹à¦¨à§‹ revision à¦²à¦— à¦¨à§‡à¦‡</p>
+          <p className="text-sm text-white/30">এখনো কোনো revision লগ নেই</p>
         </div>
       ) : (
         Object.entries(byDate).map(([date, entries]) => (
@@ -393,9 +393,9 @@ function HistoryTab() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white/75 truncate">{log.chapterName}</p>
                       <p className="text-xs text-white/30">
-                        {log.subject} Â· {log.revisionCount}à¦¤à¦® revision
-                        {log.nextDueDate && ` Â· à¦ªà¦°à§‡à¦°à¦Ÿà¦¾: ${log.nextDueDate}`}
-                        {!log.nextDueDate && ' Â· âœ… Mastered'}
+                        {log.subject} · {log.revisionCount}তম revision
+                        {log.nextDueDate && ` · পরেরটা: ${log.nextDueDate}`}
+                        {!log.nextDueDate && ' · ✅ Mastered'}
                       </p>
                       {log.notes && <p className="text-xs text-yellow-400/60 mt-0.5 truncate">"{log.notes}"</p>}
                     </div>
